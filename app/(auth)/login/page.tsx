@@ -36,6 +36,10 @@ export default function LoginPage() {
         setError(result.error || "Login failed");
         return;
       }
+      if (result.requiresVerification) {
+        router.push(`/verify-email?email=${encodeURIComponent(result.email)}`);
+        return;
+      }
       router.push("/dashboard");
       router.refresh();
     } catch {

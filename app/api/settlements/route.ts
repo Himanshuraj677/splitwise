@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { settlementSchema } from "@/lib/validations";
+import { sendSettlementNotificationEmail } from "@/lib/email";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -80,10 +81,30 @@ export async function POST(request: Request) {
       userId: receiverId,
       type: "SETTLEMENT",
       title: "Settlement Received",
-      message: `${settlement.payer.name} settled ${amount} with you`,
+      message: `${settlement.payer.name} settled ${amount} with you in "${settlement.group.name}"`,
       data: { groupId, settlementId: settlement.id },
     },
   });
+
+  // Send email notification to receiver
+  const receiverUser = await prisma.user.findUnique({
+    where: { id: receiverId },
+    select: { email: true, name: true },
+  });
+  const groupData = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { currency: true },
+  });
+  if (receiverUser) {
+    sendSettlementNotificationEmail(
+      receiverUser.email,
+      receiverUser.name,
+      settlement.payer.name,
+      amount,
+      settlement.group.name,
+      groupData?.currency || "INR"
+    );
+  }
 
   return NextResponse.json({ settlement }, { status: 201 });
 }

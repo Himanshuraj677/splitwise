@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { expenseSchema } from "@/lib/validations";
+import { sendExpenseNotificationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -63,16 +64,43 @@ export async function POST(request: Request) {
     .map((s: any) => s.userId)
     .filter((id: string) => id !== session.userId);
 
+  // Get group info for email
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { name: true, currency: true },
+  });
+
   for (const uid of participantIds) {
     await prisma.notification.create({
       data: {
         userId: uid,
         type: "NEW_EXPENSE",
         title: "New Expense",
-        message: `${session.name} added "${title}" for ${amount} in a group`,
+        message: `${session.name} added "${title}" for ${amount} in "${group?.name}"`,
         data: { groupId, expenseId: expense.id },
       },
     });
+
+    // Send email notification
+    const participant = expense.splits.find((s) => s.user.id === uid);
+    if (participant) {
+      const user = await prisma.user.findUnique({
+        where: { id: uid },
+        select: { email: true, name: true },
+      });
+      if (user) {
+        sendExpenseNotificationEmail(
+          user.email,
+          user.name,
+          session.name,
+          title,
+          amount,
+          participant.amount,
+          group?.name || "a group",
+          group?.currency || "INR"
+        );
+      }
+    }
   }
 
   return NextResponse.json({ expense }, { status: 201 });

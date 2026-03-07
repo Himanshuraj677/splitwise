@@ -8,10 +8,22 @@ export async function GET() {
 
   const user = await prisma.user.findUnique({
     where: { id: session.userId },
-    select: { id: true, name: true, email: true, avatarUrl: true, createdAt: true },
+    select: {
+      id: true, name: true, email: true, avatarUrl: true, createdAt: true, emailVerified: true,
+      _count: { select: { groupMemberships: true, expensesPaid: true, settlementsPaid: true } },
+    },
   });
 
-  return NextResponse.json({ user });
+  const formatted = user ? {
+    ...user,
+    _count: {
+      groups: user._count.groupMemberships,
+      expensesPaid: user._count.expensesPaid,
+      settlements: user._count.settlementsPaid,
+    },
+  } : null;
+
+  return NextResponse.json({ user: formatted });
 }
 
 export async function PATCH(request: Request) {

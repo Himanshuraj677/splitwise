@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { inviteSchema } from "@/lib/validations";
+import { sendInvitationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   const session = await getSession();
@@ -24,6 +25,11 @@ export async function POST(request: Request) {
   if (!membership) {
     return NextResponse.json({ error: "You are not a member of this group" }, { status: 403 });
   }
+
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    select: { name: true },
+  });
 
   // Check if already a member
   const existingUser = await prisma.user.findUnique({
@@ -50,10 +56,18 @@ export async function POST(request: Request) {
         userId: existingUser.id,
         type: "GROUP_INVITE",
         title: "Group Invitation",
-        message: `You have been added to a group by ${session.name}`,
+        message: `You have been added to "${group?.name}" by ${session.name}`,
         data: { groupId },
       },
     });
+
+    // Send invitation email
+    await sendInvitationEmail(
+      existingUser.email,
+      session.name,
+      group?.name || "a group",
+      true
+    );
 
     return NextResponse.json({ message: "User added to group" });
   }
@@ -75,6 +89,14 @@ export async function POST(request: Request) {
       invitedById: session.userId,
     },
   });
+
+  // Send invitation email to non-registered user
+  await sendInvitationEmail(
+    email.toLowerCase(),
+    session.name,
+    group?.name || "a group",
+    false
+  );
 
   return NextResponse.json({ invitation }, { status: 201 });
 }

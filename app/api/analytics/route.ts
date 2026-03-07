@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     monthlyData.push({
       month: start.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
-      amount: splits._sum.amount || 0,
+      total: splits._sum.amount || 0,
     });
   }
 
@@ -50,8 +50,8 @@ export async function GET(request: Request) {
   });
 
   const categoryBreakdown = Object.entries(categoryMap)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
+    .map(([category, total]) => ({ category, total }))
+    .sort((a, b) => b.total - a.total);
 
   // If group-specific, get member contributions
   let memberContributions: { name: string; amount: number }[] = [];
@@ -73,12 +73,37 @@ export async function GET(request: Request) {
     }
   }
 
+  // Group breakdown (when viewing all groups)
+  let groupBreakdown: { groupId: string; groupName: string; total: number }[] = [];
+  if (!groupId) {
+    const userGroups = await prisma.groupMember.findMany({
+      where: { userId: session.userId },
+      include: { group: { select: { id: true, name: true } } },
+    });
+
+    for (const gm of userGroups) {
+      const groupTotal = await prisma.expenseSplit.aggregate({
+        where: { userId: session.userId, expense: { groupId: gm.groupId } },
+        _sum: { amount: true },
+      });
+      if (groupTotal._sum.amount) {
+        groupBreakdown.push({
+          groupId: gm.group.id,
+          groupName: gm.group.name,
+          total: groupTotal._sum.amount,
+        });
+      }
+    }
+    groupBreakdown.sort((a, b) => b.total - a.total);
+  }
+
   // Total spending
-  const totalSpending = monthlyData.reduce((sum, m) => sum + m.amount, 0);
+  const totalSpending = monthlyData.reduce((sum, m) => sum + m.total, 0);
 
   return NextResponse.json({
     monthlyData,
     categoryBreakdown,
+    groupBreakdown,
     memberContributions,
     totalSpending,
   });

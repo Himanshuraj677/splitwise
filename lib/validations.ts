@@ -21,6 +21,21 @@ export const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
+export const verifyEmailSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().length(6, "Verification code must be 6 digits"),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email("Invalid email address"),
+  otp: z.string().length(6, "Reset code must be 6 digits"),
+  newPassword: z.string().min(6, "Password must be at least 6 characters"),
+  confirmPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 export const groupSchema = z.object({
   name: z.string().min(1, "Group name is required"),
   description: z.string().optional(),
@@ -87,3 +102,5 @@ export type PersonalExpenseInput = z.infer<typeof personalExpenseSchema>;
 export type BudgetInput = z.infer<typeof budgetSchema>;
 export type InviteInput = z.infer<typeof inviteSchema>;
 export type CommentInput = z.infer<typeof commentSchema>;
+export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

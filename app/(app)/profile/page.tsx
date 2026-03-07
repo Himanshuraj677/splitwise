@@ -7,13 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Save, User } from "lucide-react";
+import { Loader2, Save, User, ShieldCheck, ShieldAlert, Mail } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
   name: string;
   email: string;
+  emailVerified: boolean;
   createdAt: string;
   _count: { groups: number; expensesPaid: number; settlements: number };
 }
@@ -24,6 +26,10 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -34,6 +40,49 @@ export default function ProfilePage() {
         setLoading(false);
       });
   }, []);
+
+  async function sendVerificationOtp() {
+    setSendingOtp(true);
+    try {
+      const res = await fetch("/api/profile/verify-email", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOtpSent(true);
+        toast({ title: "Verification code sent to your email!" });
+      } else {
+        toast({ title: data.error || "Failed to send code", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Something went wrong", variant: "destructive" });
+    }
+    setSendingOtp(false);
+  }
+
+  async function verifyOtp() {
+    if (otp.length !== 6) return;
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/profile/verify-email", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setProfile((prev) => (prev ? { ...prev, emailVerified: true } : prev));
+        setOtpSent(false);
+        setOtp("");
+        toast({ title: "Email verified successfully!" });
+      } else {
+        toast({ title: data.error || "Verification failed", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Something went wrong", variant: "destructive" });
+    }
+    setVerifying(false);
+  }
 
   async function updateProfile() {
     if (!name.trim()) return;
@@ -85,7 +134,18 @@ export default function ProfilePage() {
               </AvatarFallback>
             </Avatar>
             <div>
-              <h2 className="text-xl font-semibold">{profile.name}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold">{profile.name}</h2>
+                {profile.emailVerified ? (
+                  <Badge variant="default" className="bg-green-600 text-xs">
+                    <ShieldCheck className="mr-1 h-3 w-3" /> Verified
+                  </Badge>
+                ) : (
+                  <Badge variant="destructive" className="text-xs">
+                    <ShieldAlert className="mr-1 h-3 w-3" /> Unverified
+                  </Badge>
+                )}
+              </div>
               <p className="text-sm text-muted-foreground">{profile.email}</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Member since{" "}
@@ -98,6 +158,59 @@ export default function ProfilePage() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Email Verification */}
+      {!profile.emailVerified && (
+        <Card className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+              <Mail className="h-5 w-5" />
+              Verify Your Email
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-amber-700 dark:text-amber-400">
+              Your email is not verified. Verify it to unlock password reset and improve account security.
+            </p>
+            {!otpSent ? (
+              <Button onClick={sendVerificationOtp} disabled={sendingOtp} variant="outline">
+                {sendingOtp ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="mr-2 h-4 w-4" />
+                )}
+                Send Verification Code
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Enter the 6-digit code sent to {profile.email}</Label>
+                  <Input
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="000000"
+                    maxLength={6}
+                    className="max-w-[200px] text-center tracking-[0.5em] font-mono text-lg"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={verifyOtp} disabled={verifying || otp.length !== 6}>
+                    {verifying ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                    )}
+                    Verify
+                  </Button>
+                  <Button variant="ghost" onClick={sendVerificationOtp} disabled={sendingOtp}>
+                    Resend Code
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 md:grid-cols-3">

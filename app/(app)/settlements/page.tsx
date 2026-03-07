@@ -32,7 +32,11 @@ export default function SettlementsPage() {
       fetch("/api/settlements").then((r) => r.json()),
       fetch("/api/auth/me").then((r) => r.json()),
     ]).then(([settData, meData]) => {
-      setSettlements(settData.settlements || []);
+      const mapped = (settData.settlements || []).map((s: any) => ({
+        ...s,
+        payee: s.payee || s.receiver,
+      }));
+      setSettlements(mapped);
       setCurrentUserId(meData.user?.id || null);
       setLoading(false);
     });

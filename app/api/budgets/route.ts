@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { budgetSchema } from "@/lib/validations";
+import { sendBudgetAlertEmail } from "@/lib/email";
 
 export async function GET(request: Request) {
   const session = await getSession();
@@ -46,12 +47,32 @@ export async function GET(request: Request) {
     categorySpent[cat] = (categorySpent[cat] || 0) + s.amount;
   });
 
+  const percentage = budget ? (totalSpent / budget.monthlyLimit) * 100 : null;
+
+  // Send budget alert email if threshold crossed
+  if (budget && percentage !== null && percentage >= 80) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      select: { email: true, name: true },
+    });
+    if (user) {
+      sendBudgetAlertEmail(
+        user.email,
+        user.name,
+        percentage,
+        totalSpent,
+        budget.monthlyLimit,
+        "INR"
+      );
+    }
+  }
+
   return NextResponse.json({
     budget,
     totalSpent,
     categorySpent,
     remaining: budget ? budget.monthlyLimit - totalSpent : null,
-    percentage: budget ? (totalSpent / budget.monthlyLimit) * 100 : null,
+    percentage,
   });
 }
 
