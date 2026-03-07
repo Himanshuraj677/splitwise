@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Users, ArrowRight, Loader2 } from "lucide-react";
+import { Plus, Users, ArrowRight, Loader2, Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
 interface Group {
@@ -43,6 +43,7 @@ export default function GroupsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const { toast } = useToast();
+  const [search, setSearch] = useState("");
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -88,6 +89,12 @@ export default function GroupsPage() {
     COUPLE: "Couple",
     CUSTOM: "Custom",
   };
+
+  const filteredGroups = groups.filter(
+    (g) =>
+      g.name.toLowerCase().includes(search.toLowerCase()) ||
+      (g.description || "").toLowerCase().includes(search.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -182,19 +189,44 @@ export default function GroupsPage() {
         </Dialog>
       </div>
 
+      {/* Search */}
+      {groups.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search groups..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      )}
+
       {groups.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
+            <div className="rounded-full bg-primary/10 p-4 mb-4">
+              <Users className="h-10 w-10 text-primary" />
+            </div>
             <h3 className="text-lg font-semibold">No groups yet</h3>
-            <p className="text-muted-foreground text-sm mt-1">
-              Create a group to start splitting expenses
+            <p className="text-muted-foreground text-sm mt-1 text-center max-w-sm">
+              Create your first group to start splitting expenses with friends, roommates, or travel buddies.
             </p>
+            <Button className="mt-4" onClick={() => setDialogOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" /> Create Your First Group
+            </Button>
+          </CardContent>
+        </Card>
+      ) : filteredGroups.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Search className="h-8 w-8 text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground">No groups match &ldquo;{search}&rdquo;</p>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {groups.map((group) => (
+          {filteredGroups.map((group) => (
             <Link key={group.id} href={`/groups/${group.id}`}>
               <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
                 <CardHeader className="pb-3">

@@ -158,9 +158,15 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             {data.recentExpenses.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No expenses yet. Add one to get started!
-              </p>
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="rounded-full bg-primary/10 p-3 mb-3">
+                  <Plus className="h-5 w-5 text-primary" />
+                </div>
+                <p className="text-sm font-medium">No expenses yet</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Add your first expense in a group
+                </p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {data.recentExpenses.map((expense) => {

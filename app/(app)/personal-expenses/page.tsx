@@ -27,7 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Loader2, MoreVertical, Trash2 } from "lucide-react";
+import { Plus, Loader2, MoreVertical, Trash2, Receipt } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
   formatCurrency,
@@ -340,9 +340,15 @@ export default function PersonalExpensesPage() {
         </CardHeader>
         <CardContent>
           {expenses.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-8">
-              No personal expenses yet
-            </p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="rounded-full bg-primary/10 p-4 mb-4">
+                <Receipt className="h-8 w-8 text-primary" />
+              </div>
+              <p className="font-medium">No personal expenses yet</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                Track your daily spending by adding expenses above.
+              </p>
+            </div>
           ) : (
             <div className="space-y-3">
               {expenses.map((expense) => {

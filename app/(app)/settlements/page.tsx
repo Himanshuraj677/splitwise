@@ -10,7 +10,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { Loader2, ArrowRight, Check, Clock } from "lucide-react";
+import { Loader2, ArrowRight, Check, Clock, HandCoins } from "lucide-react";
 import { formatCurrency, formatRelativeDate } from "@/lib/utils";
 
 interface Settlement {
@@ -147,8 +147,14 @@ export default function SettlementsPage() {
         <TabsContent value="all" className="mt-4 space-y-3">
           {settlements.length === 0 ? (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                No settlements yet. Record settlements from group pages.
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <div className="rounded-full bg-primary/10 p-4 mb-4">
+                  <HandCoins className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-semibold">No settlements yet</h3>
+                <p className="text-sm text-muted-foreground mt-1 text-center max-w-sm">
+                  Settlements will appear here when you record payments in your groups.
+                </p>
               </CardContent>
             </Card>
           ) : (

@@ -103,9 +103,12 @@ export default function NotificationsPage() {
         </CardHeader>
         <CardContent className="p-0">
           {notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <BellOff className="h-10 w-10 mb-3" />
-              <p className="text-sm">No notifications yet</p>
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <div className="rounded-full bg-muted p-4 mb-4">
+                <BellOff className="h-8 w-8" />
+              </div>
+              <p className="font-medium text-foreground">All caught up!</p>
+              <p className="text-sm mt-1">No notifications to show right now.</p>
             </div>
           ) : (
             <ScrollArea className="h-[60vh]">

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Loader2, Save, User, ShieldCheck, ShieldAlert, Mail } from "lucide-react";
+import { Loader2, Save, User, ShieldCheck, ShieldAlert, Mail, KeyRound, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 
@@ -30,6 +30,12 @@ export default function ProfilePage() {
   const [otp, setOtp] = useState("");
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
 
   useEffect(() => {
     fetch("/api/profile")
@@ -274,6 +280,112 @@ export default function ProfilePage() {
               <Save className="mr-2 h-4 w-4" />
             )}
             Save Changes
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Change Password */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            Change Password
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label>Current Password</Label>
+            <div className="relative">
+              <Input
+                type={showCurrentPw ? "text" : "password"}
+                value={currentPassword}
+                onChange={(e) => setCurrentPassword(e.target.value)}
+                placeholder="Enter current password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowCurrentPw(!showCurrentPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showCurrentPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>New Password</Label>
+            <div className="relative">
+              <Input
+                type={showNewPw ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimum 6 characters"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPw(!showNewPw)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {showNewPw ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Confirm New Password</Label>
+            <Input
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Re-enter new password"
+            />
+            {confirmPassword && newPassword !== confirmPassword && (
+              <p className="text-xs text-destructive">Passwords don&apos;t match</p>
+            )}
+          </div>
+          <Separator />
+          <Button
+            onClick={async () => {
+              if (newPassword.length < 6) {
+                toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+                return;
+              }
+              if (newPassword !== confirmPassword) {
+                toast({ title: "Passwords don't match", variant: "destructive" });
+                return;
+              }
+              setChangingPassword(true);
+              try {
+                const res = await fetch("/api/profile/change-password", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ currentPassword, newPassword }),
+                });
+                const data = await res.json();
+                if (res.ok) {
+                  toast({ title: "Password changed successfully!" });
+                  setCurrentPassword("");
+                  setNewPassword("");
+                  setConfirmPassword("");
+                } else {
+                  toast({ title: data.error || "Failed to change password", variant: "destructive" });
+                }
+              } catch {
+                toast({ title: "Something went wrong", variant: "destructive" });
+              }
+              setChangingPassword(false);
+            }}
+            disabled={
+              changingPassword ||
+              !currentPassword ||
+              newPassword.length < 6 ||
+              newPassword !== confirmPassword
+            }
+          >
+            {changingPassword ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <KeyRound className="mr-2 h-4 w-4" />
+            )}
+            Change Password
           </Button>
         </CardContent>
       </Card>
