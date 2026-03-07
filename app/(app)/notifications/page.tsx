@@ -15,8 +15,13 @@ import {
   Users,
   UserPlus,
   Receipt,
+  Check,
+  X,
+  ShieldCheck,
+  Crown,
 } from "lucide-react";
 import { formatRelativeDate } from "@/lib/utils";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Notification {
   id: string;
@@ -24,20 +29,44 @@ interface Notification {
   message: string;
   read: boolean;
   createdAt: string;
+  data?: any;
+}
+
+interface PendingInvitation {
+  id: string;
+  email: string;
+  createdAt: string;
+  group: {
+    id: string;
+    name: string;
+    description: string | null;
+    groupType: string;
+    _count: { members: number };
+  };
+  invitedBy: {
+    name: string;
+    email: string;
+  };
 }
 
 const iconMap: Record<string, React.ReactNode> = {
   EXPENSE_ADDED: <Receipt className="h-4 w-4" />,
+  NEW_EXPENSE: <Receipt className="h-4 w-4" />,
   EXPENSE_UPDATED: <Receipt className="h-4 w-4" />,
   SETTLEMENT: <DollarSign className="h-4 w-4" />,
   GROUP_INVITE: <UserPlus className="h-4 w-4" />,
   MEMBER_JOINED: <Users className="h-4 w-4" />,
+  MEMBER_LEFT: <Users className="h-4 w-4" />,
+  ROLE_CHANGED: <ShieldCheck className="h-4 w-4" />,
 };
 
 export default function NotificationsPage() {
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [pendingInvitations, setPendingInvitations] = useState<PendingInvitation[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [respondingTo, setRespondingTo] = useState<string | null>(null);
 
   const loadNotifications = useCallback(async () => {
     const res = await fetch("/api/notifications");
@@ -47,9 +76,18 @@ export default function NotificationsPage() {
     setLoading(false);
   }, []);
 
+  const loadInvitations = useCallback(async () => {
+    const res = await fetch("/api/invitations");
+    if (res.ok) {
+      const data = await res.json();
+      setPendingInvitations(data.invitations || []);
+    }
+  }, []);
+
   useEffect(() => {
     loadNotifications();
-  }, [loadNotifications]);
+    loadInvitations();
+  }, [loadNotifications, loadInvitations]);
 
   async function markAllRead() {
     await fetch("/api/notifications", {
@@ -67,6 +105,26 @@ export default function NotificationsPage() {
       body: JSON.stringify({ notificationId: id }),
     });
     loadNotifications();
+  }
+
+  async function respondToInvitation(invitationId: string, action: "accept" | "decline") {
+    setRespondingTo(invitationId);
+    const res = await fetch("/api/invitations", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invitationId, action }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      toast({ title: data.message });
+      loadInvitations();
+      loadNotifications();
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+    setRespondingTo(null);
   }
 
   if (loading) {
@@ -93,6 +151,61 @@ export default function NotificationsPage() {
           </Button>
         )}
       </div>
+
+      {/* Pending Invitations */}
+      {pendingInvitations.length > 0 && (
+        <Card className="border-primary/20">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-primary" />
+              Pending Invitations ({pendingInvitations.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {pendingInvitations.map((inv) => (
+              <div
+                key={inv.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-lg border p-4"
+              >
+                <div className="space-y-1">
+                  <p className="font-semibold">{inv.group.name}</p>
+                  {inv.group.description && (
+                    <p className="text-sm text-muted-foreground">{inv.group.description}</p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Invited by <span className="font-medium">{inv.invitedBy.name}</span> &middot;{" "}
+                    {inv.group._count.members} member{inv.group._count.members !== 1 ? "s" : ""} &middot;{" "}
+                    {formatRelativeDate(inv.createdAt)}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    onClick={() => respondToInvitation(inv.id, "accept")}
+                    disabled={respondingTo === inv.id}
+                  >
+                    {respondingTo === inv.id ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Check className="mr-1 h-4 w-4" />
+                    )}
+                    Accept
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => respondToInvitation(inv.id, "decline")}
+                    disabled={respondingTo === inv.id}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Decline
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>

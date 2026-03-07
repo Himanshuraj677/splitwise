@@ -45,21 +45,6 @@ export async function POST(request: Request) {
       },
     });
 
-    // Accept any pending invitations
-    const pendingInvites = await prisma.invitation.findMany({
-      where: { email: email.toLowerCase(), status: "PENDING" },
-    });
-
-    for (const invite of pendingInvites) {
-      await prisma.groupMember.create({
-        data: { userId: user.id, groupId: invite.groupId, role: "MEMBER" },
-      });
-      await prisma.invitation.update({
-        where: { id: invite.id },
-        data: { status: "ACCEPTED" },
-      });
-    }
-
     // Send welcome email
     await sendWelcomeEmail(user.email, user.name);
 

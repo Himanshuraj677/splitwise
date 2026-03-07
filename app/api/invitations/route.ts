@@ -17,13 +17,13 @@ export async function POST(request: Request) {
 
   const { email, groupId } = parsed.data;
 
-  // Check user is member of the group
+  // Only OWNER or ADMIN can invite
   const membership = await prisma.groupMember.findUnique({
     where: { userId_groupId: { userId: session.userId, groupId } },
   });
 
-  if (!membership) {
-    return NextResponse.json({ error: "You are not a member of this group" }, { status: 403 });
+  if (!membership || membership.role === "MEMBER") {
+    return NextResponse.json({ error: "Only group admins can invite members" }, { status: 403 });
   }
 
   const group = await prisma.group.findUnique({
@@ -44,35 +44,9 @@ export async function POST(request: Request) {
     if (existingMembership) {
       return NextResponse.json({ error: "User is already a member" }, { status: 409 });
     }
-
-    // Add user directly
-    await prisma.groupMember.create({
-      data: { userId: existingUser.id, groupId, role: "MEMBER" },
-    });
-
-    // Create notification
-    await prisma.notification.create({
-      data: {
-        userId: existingUser.id,
-        type: "GROUP_INVITE",
-        title: "Group Invitation",
-        message: `You have been added to "${group?.name}" by ${session.name}`,
-        data: { groupId },
-      },
-    });
-
-    // Send invitation email
-    await sendInvitationEmail(
-      existingUser.email,
-      session.name,
-      group?.name || "a group",
-      true
-    );
-
-    return NextResponse.json({ message: "User added to group" });
   }
 
-  // Check if already invited
+  // Check if already invited (pending)
   const existingInvite = await prisma.invitation.findFirst({
     where: { email: email.toLowerCase(), groupId, status: "PENDING" },
   });
@@ -81,7 +55,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invitation already sent" }, { status: 409 });
   }
 
-  // Create invitation
+  // Always create an invitation — user must accept/decline
   const invitation = await prisma.invitation.create({
     data: {
       email: email.toLowerCase(),
@@ -90,13 +64,132 @@ export async function POST(request: Request) {
     },
   });
 
-  // Send invitation email to non-registered user
+  // Create notification for existing user
+  if (existingUser) {
+    await prisma.notification.create({
+      data: {
+        userId: existingUser.id,
+        type: "GROUP_INVITE",
+        title: "Group Invitation",
+        message: `${session.name} invited you to join "${group?.name}"`,
+        data: { groupId, invitationId: invitation.id },
+      },
+    });
+  }
+
+  // Log activity
+  await prisma.activityLog.create({
+    data: {
+      groupId,
+      userId: session.userId,
+      action: "INVITE_SENT",
+      detail: `Invited ${email} to the group`,
+    },
+  });
+
+  // Send invitation email
   await sendInvitationEmail(
     email.toLowerCase(),
     session.name,
     group?.name || "a group",
-    false
+    !!existingUser
   );
 
   return NextResponse.json({ invitation }, { status: 201 });
+}
+
+// Accept or decline an invitation
+export async function PATCH(request: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json();
+  const { invitationId, action } = body;
+
+  if (!invitationId || !["accept", "decline"].includes(action)) {
+    return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  }
+
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+    include: { group: { select: { name: true } }, invitedBy: { select: { name: true, id: true } } },
+  });
+
+  if (!invitation || invitation.status !== "PENDING") {
+    return NextResponse.json({ error: "Invitation not found or already resolved" }, { status: 404 });
+  }
+
+  // Verify the invitation is for this user
+  if (invitation.email !== session.email) {
+    return NextResponse.json({ error: "This invitation is not for you" }, { status: 403 });
+  }
+
+  if (action === "accept") {
+    // Check if already a member (edge case)
+    const existing = await prisma.groupMember.findUnique({
+      where: { userId_groupId: { userId: session.userId, groupId: invitation.groupId } },
+    });
+
+    if (existing) {
+      await prisma.invitation.update({ where: { id: invitationId }, data: { status: "ACCEPTED" } });
+      return NextResponse.json({ message: "You are already a member of this group" });
+    }
+
+    await prisma.$transaction([
+      prisma.invitation.update({ where: { id: invitationId }, data: { status: "ACCEPTED" } }),
+      prisma.groupMember.create({ data: { userId: session.userId, groupId: invitation.groupId, role: "MEMBER" } }),
+      prisma.activityLog.create({
+        data: {
+          groupId: invitation.groupId,
+          userId: session.userId,
+          action: "MEMBER_JOINED",
+          detail: `${session.name} joined the group`,
+        },
+      }),
+      prisma.notification.create({
+        data: {
+          userId: invitation.invitedBy.id,
+          type: "MEMBER_JOINED",
+          title: "Invitation Accepted",
+          message: `${session.name} accepted your invitation to "${invitation.group.name}"`,
+          data: { groupId: invitation.groupId },
+        },
+      }),
+    ]);
+
+    return NextResponse.json({ message: "You have joined the group" });
+  }
+
+  // Decline
+  await prisma.$transaction([
+    prisma.invitation.update({ where: { id: invitationId }, data: { status: "DECLINED" } }),
+    prisma.notification.create({
+      data: {
+        userId: invitation.invitedBy.id,
+        type: "GENERAL",
+        title: "Invitation Declined",
+        message: `${session.name} declined your invitation to "${invitation.group.name}"`,
+        data: { groupId: invitation.groupId },
+      },
+    }),
+  ]);
+
+  return NextResponse.json({ message: "Invitation declined" });
+}
+
+// Get pending invitations for the current user
+export async function GET() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const invitations = await prisma.invitation.findMany({
+    where: { email: session.email, status: "PENDING" },
+    include: {
+      group: { select: { id: true, name: true, description: true, groupType: true, _count: { select: { members: true } } } },
+      invitedBy: { select: { name: true, email: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return NextResponse.json({ invitations });
 }

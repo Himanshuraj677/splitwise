@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { setAuthCookie } from "@/lib/auth";
 import { registerSchema } from "@/lib/validations";
 import { generateOTP, sendVerificationEmail } from "@/lib/email";
 
@@ -25,20 +26,29 @@ export async function POST(request: Request) {
 
     if (existingUser) {
       if (!existingUser.emailVerified) {
-        // Resend OTP for unverified accounts
+        // Update password hash in case they forgot, resend OTP
+        const passwordHash = await bcrypt.hash(password, 12);
         const otp = generateOTP();
         await prisma.user.update({
           where: { id: existingUser.id },
           data: {
+            name,
+            passwordHash,
             verificationOtp: otp,
             verificationExp: new Date(Date.now() + 10 * 60 * 1000),
           },
         });
-        await sendVerificationEmail(email, existingUser.name, otp);
+        sendVerificationEmail(email, name, otp).catch(() => {});
+
+        await setAuthCookie({
+          userId: existingUser.id,
+          email: existingUser.email,
+          name,
+        });
+
         return NextResponse.json({
-          requiresVerification: true,
-          email: email.toLowerCase(),
-          message: "Verification code resent to your email",
+          user: { id: existingUser.id, name, email: existingUser.email },
+          message: "Account updated! Please verify your email when convenient.",
         });
       }
       return NextResponse.json(
@@ -65,13 +75,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Send verification email
-    await sendVerificationEmail(user.email, user.name, otp);
+    // Send verification email (non-blocking)
+    sendVerificationEmail(user.email, user.name, otp).catch(() => {});
+
+    // Set auth cookie so user can use the app immediately
+    await setAuthCookie({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+    });
 
     return NextResponse.json({
-      requiresVerification: true,
-      email: user.email,
-      message: "Please check your email for the verification code",
+      user: { id: user.id, name: user.name, email: user.email },
+      message: "Account created! Please verify your email when convenient.",
     });
   } catch (error) {
     console.error("Registration error:", error);

@@ -3,7 +3,6 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { setAuthCookie } from "@/lib/auth";
 import { loginSchema } from "@/lib/validations";
-import { generateOTP, sendVerificationEmail } from "@/lib/email";
 
 export async function POST(request: Request) {
   try {
@@ -38,24 +37,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // If email not verified, resend OTP and tell frontend
-    if (!user.emailVerified) {
-      const otp = generateOTP();
-      await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          verificationOtp: otp,
-          verificationExp: new Date(Date.now() + 10 * 60 * 1000),
-        },
-      });
-      await sendVerificationEmail(user.email, user.name, otp);
-      return NextResponse.json({
-        requiresVerification: true,
-        email: user.email,
-        message: "Please verify your email first. A new code has been sent.",
-      });
-    }
-
+    // Always set auth cookie — email verification is optional
     await setAuthCookie({
       userId: user.id,
       email: user.email,
@@ -63,7 +45,7 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({
-      user: { id: user.id, name: user.name, email: user.email },
+      user: { id: user.id, name: user.name, email: user.email, emailVerified: user.emailVerified },
     });
   } catch (error) {
     console.error("Login error:", error);

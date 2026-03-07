@@ -32,6 +32,7 @@ model User {
   comments         Comment[]
   notifications    Notification[]
   recurringExpenses RecurringExpense[]
+  activityLogs       ActivityLog[]
 
   @@index([email])
 }
@@ -46,10 +47,11 @@ model Group {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  members     GroupMember[]
-  expenses    Expense[]
-  settlements Settlement[]
-  invitations Invitation[]
+  members      GroupMember[]
+  expenses     Expense[]
+  settlements  Settlement[]
+  invitations  Invitation[]
+  activityLogs ActivityLog[]
 
   @@index([name])
 }
@@ -170,6 +172,7 @@ model Invitation {
 enum InvitationStatus {
   PENDING
   ACCEPTED
+  DECLINED
 }
 
 model PersonalExpense {
@@ -239,6 +242,9 @@ enum NotificationType {
   SETTLEMENT
   BUDGET_WARNING
   GENERAL
+  MEMBER_JOINED
+  MEMBER_LEFT
+  ROLE_CHANGED
 }
 
 model RecurringExpense {
@@ -264,4 +270,19 @@ enum Frequency {
   WEEKLY
   MONTHLY
   YEARLY
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  action    String
+  detail    String?
+  createdAt DateTime @default(now())
+
+  groupId   String
+  userId    String
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User  @relation(fields: [userId], references: [id])
+
+  @@index([groupId])
+  @@index([createdAt])
 }

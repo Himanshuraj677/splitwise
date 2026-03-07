@@ -30,8 +30,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Plus,
   UserPlus,
@@ -40,6 +52,12 @@ import {
   Trash2,
   ArrowRight,
   Download,
+  Shield,
+  ShieldCheck,
+  Crown,
+  UserMinus,
+  LogOut,
+  Activity,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -95,6 +113,16 @@ export default function GroupDetailPage() {
   const [settlementReceiver, setSettlementReceiver] = useState("");
   const [settlementAmount, setSettlementAmount] = useState("");
   const [settlementNote, setSettlementNote] = useState("");
+
+  // Activity log
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  // Current user role in this group
+  const myRole = data?.group.members.find((m: any) => m.userId === currentUserId)?.role;
+  const isOwner = myRole === "OWNER";
+  const isAdmin = myRole === "ADMIN";
+  const canManage = isOwner || isAdmin;
 
   const loadGroup = useCallback(async () => {
     const res = await fetch(`/api/groups/${id}`);
@@ -249,6 +277,47 @@ export default function GroupDetailPage() {
     window.open(`/api/export?type=group&groupId=${id}&format=csv`, "_blank");
   }
 
+  async function changeRole(memberId: string, action: "promote" | "demote" | "transfer_ownership") {
+    const res = await fetch(`/api/groups/${id}/members`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memberId, action }),
+    });
+    if (res.ok) {
+      toast({ title: action === "transfer_ownership" ? "Ownership transferred" : action === "promote" ? "Member promoted" : "Member demoted" });
+      loadGroup();
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function removeMember(memberId: string) {
+    const res = await fetch(`/api/groups/${id}/members?memberId=${memberId}`, { method: "DELETE" });
+    if (res.ok) {
+      const result = await res.json();
+      toast({ title: result.message });
+      if (memberId === currentUserId) {
+        router.push("/groups");
+      } else {
+        loadGroup();
+      }
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function loadActivity() {
+    setActivityLoading(true);
+    const res = await fetch(`/api/groups/${id}/activity`);
+    if (res.ok) {
+      const data = await res.json();
+      setActivityLogs(data.logs || []);
+    }
+    setActivityLoading(false);
+  }
+
   if (loading || !data) {
     return (
       <div className="flex h-[50vh] items-center justify-center">
@@ -273,35 +342,62 @@ export default function GroupDetailPage() {
           <Button variant="outline" size="sm" onClick={exportData}>
             <Download className="mr-2 h-4 w-4" /> Export
           </Button>
-          <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
-            <DialogTrigger asChild>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm">
-                <UserPlus className="mr-2 h-4 w-4" /> Invite
+                <LogOut className="mr-2 h-4 w-4" /> Leave
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Invite Member</DialogTitle>
-                <DialogDescription>
-                  Enter an email to invite someone to this group.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Email Address</Label>
-                  <Input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="friend@example.com"
-                  />
-                </div>
-                <Button onClick={inviteMember} className="w-full">
-                  Send Invite
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Leave Group?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {isOwner
+                    ? "As the owner, you must transfer ownership before leaving."
+                    : "Are you sure you want to leave this group? You won't be able to rejoin without a new invitation."}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                {!isOwner && (
+                  <AlertDialogAction onClick={() => removeMember(currentUserId)}>
+                    Leave Group
+                  </AlertDialogAction>
+                )}
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          {canManage && (
+            <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <UserPlus className="mr-2 h-4 w-4" /> Invite
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Invite Member</DialogTitle>
+                  <DialogDescription>
+                    Enter an email to invite someone to this group. They must accept the invitation to join.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Email Address</Label>
+                    <Input
+                      type="email"
+                      value={inviteEmail}
+                      onChange={(e) => setInviteEmail(e.target.value)}
+                      placeholder="friend@example.com"
+                    />
+                  </div>
+                  <Button onClick={inviteMember} className="w-full">
+                    Send Invite
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          )}
           <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
@@ -469,11 +565,12 @@ export default function GroupDetailPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="expenses">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="balances">Balances</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="settlements">Settlements</TabsTrigger>
+          <TabsTrigger value="activity" onClick={loadActivity}>Activity</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
@@ -626,23 +723,88 @@ export default function GroupDetailPage() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium">{m.user.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{m.user.name}</p>
+                        {m.userId === currentUserId && (
+                          <Badge variant="outline" className="text-xs">You</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {m.user.email}
                       </p>
                     </div>
                   </div>
-                  <Badge
-                    variant={
-                      m.role === "OWNER"
-                        ? "default"
-                        : m.role === "ADMIN"
-                          ? "secondary"
-                          : "outline"
-                    }
-                  >
-                    {m.role}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge
+                      variant={
+                        m.role === "OWNER"
+                          ? "default"
+                          : m.role === "ADMIN"
+                            ? "secondary"
+                            : "outline"
+                      }
+                    >
+                      {m.role === "OWNER" && <Crown className="mr-1 h-3 w-3" />}
+                      {m.role === "ADMIN" && <ShieldCheck className="mr-1 h-3 w-3" />}
+                      {m.role === "MEMBER" && <Shield className="mr-1 h-3 w-3" />}
+                      {m.role}
+                    </Badge>
+                    {/* Role management dropdown - only for OWNER, and not on themselves */}
+                    {isOwner && m.userId !== currentUserId && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {m.role === "MEMBER" && (
+                            <DropdownMenuItem onClick={() => changeRole(m.userId, "promote")}>
+                              <ShieldCheck className="mr-2 h-4 w-4" />
+                              Promote to Admin
+                            </DropdownMenuItem>
+                          )}
+                          {m.role === "ADMIN" && (
+                            <DropdownMenuItem onClick={() => changeRole(m.userId, "demote")}>
+                              <Shield className="mr-2 h-4 w-4" />
+                              Demote to Member
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => changeRole(m.userId, "transfer_ownership")}>
+                            <Crown className="mr-2 h-4 w-4" />
+                            Transfer Ownership
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => removeMember(m.userId)}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Remove from Group
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    {/* Admin can remove members (but not other admins or owner) */}
+                    {isAdmin && !isOwner && m.userId !== currentUserId && m.role === "MEMBER" && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={() => removeMember(m.userId)}
+                          >
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Remove from Group
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
               ))}
             </CardContent>
@@ -660,7 +822,7 @@ export default function GroupDetailPage() {
                     className="flex items-center justify-between text-sm"
                   >
                     <span>{inv.email}</span>
-                    <Badge variant="warning">Pending</Badge>
+                    <Badge variant="outline" className="text-yellow-600 border-yellow-600">Pending</Badge>
                   </div>
                 ))}
               </CardContent>
@@ -789,6 +951,49 @@ export default function GroupDetailPage() {
               </Card>
             ))
           )}
+        </TabsContent>
+
+        {/* Activity */}
+        <TabsContent value="activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Activity Feed
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {activityLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : activityLogs.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No activity yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {activityLogs.map((log: any) => (
+                    <div
+                      key={log.id}
+                      className="flex items-start gap-3 rounded-lg border p-3"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground shrink-0">
+                        <Activity className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm">
+                          <span className="font-medium">{log.user.name}</span>{" "}
+                          <span className="text-muted-foreground">{log.detail || log.action}</span>
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {formatRelativeDate(log.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Analytics */}
