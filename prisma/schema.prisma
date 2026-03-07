@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  passwordHash   String
+  avatarUrl      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  groupMemberships GroupMember[]
+  expensesPaid     Expense[]        @relation("PaidBy")
+  expenseSplits    ExpenseSplit[]
+  settlementsPaid  Settlement[]     @relation("SettlementPayer")
+  settlementsReceived Settlement[]  @relation("SettlementReceiver")
+  invitationsSent  Invitation[]     @relation("InvitedBy")
+  personalExpenses PersonalExpense[]
+  budgets          Budget[]
+  comments         Comment[]
+  notifications    Notification[]
+  recurringExpenses RecurringExpense[]
+
+  @@index([email])
+}
+
+model Group {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  currency    String    @default("INR")
+  groupType   GroupType @default(FRIENDS)
+  archived    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  members     GroupMember[]
+  expenses    Expense[]
+  settlements Settlement[]
+  invitations Invitation[]
+
+  @@index([name])
+}
+
+enum GroupType {
+  TRIP
+  ROOMMATES
+  FRIENDS
+  COUPLE
+  CUSTOM
+}
+
+model GroupMember {
+  id        String      @id @default(cuid())
+  role      MemberRole  @default(MEMBER)
+  joinedAt  DateTime    @default(now())
+
+  userId    String
+  groupId   String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group     Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, groupId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+model Expense {
+  id          String      @id @default(cuid())
+  title       String
+  amount      Float
+  category    String      @default("other")
+  date        DateTime    @default(now())
+  note        String?
+  receiptUrl  String?
+  splitType   SplitType   @default(EQUAL)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  paidById    String
+  groupId     String
+  paidBy      User        @relation("PaidBy", fields: [paidById], references: [id])
+  group       Group       @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  splits      ExpenseSplit[]
+  comments    Comment[]
+
+  @@index([groupId])
+  @@index([paidById])
+  @@index([date])
+}
+
+enum SplitType {
+  EQUAL
+  EXACT
+  PERCENTAGE
+  SHARES
+}
+
+model ExpenseSplit {
+  id          String   @id @default(cuid())
+  amount      Float
+  percentage  Float?
+  shares      Int?
+
+  expenseId   String
+  userId      String
+  expense     Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@index([userId])
+  @@index([expenseId])
+}
+
+model Settlement {
+  id        String   @id @default(cuid())
+  amount    Float
+  date      DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+
+  payerId   String
+  receiverId String
+  groupId   String
+  payer     User     @relation("SettlementPayer", fields: [payerId], references: [id])
+  receiver  User     @relation("SettlementReceiver", fields: [receiverId], references: [id])
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId])
+  @@index([payerId])
+  @@index([receiverId])
+}
+
+model Invitation {
+  id          String           @id @default(cuid())
+  email       String
+  inviteToken String           @unique @default(cuid())
+  status      InvitationStatus @default(PENDING)
+  createdAt   DateTime         @default(now())
+
+  groupId     String
+  invitedById String
+  group       Group  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedBy   User   @relation("InvitedBy", fields: [invitedById], references: [id])
+
+  @@index([email])
+  @@index([inviteToken])
+  @@index([groupId])
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+}
+
+model PersonalExpense {
+  id        String   @id @default(cuid())
+  amount    Float
+  category  String   @default("other")
+  date      DateTime @default(now())
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([date])
+}
+
+model Budget {
+  id             String   @id @default(cuid())
+  monthlyLimit   Float
+  categoryBudgets Json?   @default("{}")
+  month          Int
+  year           Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, month, year])
+  @@index([userId])
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  expenseId String
+  userId    String
+  expense   Expense  @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([expenseId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+}
+
+enum NotificationType {
+  GROUP_INVITE
+  NEW_EXPENSE
+  SETTLEMENT
+  BUDGET_WARNING
+  GENERAL
+}
+
+model RecurringExpense {
+  id          String    @id @default(cuid())
+  title       String
+  amount      Float
+  category    String    @default("bills")
+  frequency   Frequency
+  nextDue     DateTime
+  groupId     String?
+  splitType   SplitType @default(EQUAL)
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([nextDue])
+}
+
+enum Frequency {
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
