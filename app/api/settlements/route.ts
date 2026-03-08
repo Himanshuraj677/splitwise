@@ -48,6 +48,16 @@ export async function POST(request: Request) {
 
   const { payerId, receiverId, amount, groupId, note } = parsed.data;
 
+  // Prevent self-settlement
+  if (payerId === receiverId) {
+    return NextResponse.json({ error: "Payer and receiver cannot be the same person" }, { status: 400 });
+  }
+
+  // Verify the session user is the payer or receiver
+  if (session.userId !== payerId && session.userId !== receiverId) {
+    return NextResponse.json({ error: "You must be the payer or receiver" }, { status: 403 });
+  }
+
   // Verify both users are in the group
   const members = await prisma.groupMember.findMany({
     where: {

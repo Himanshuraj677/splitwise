@@ -36,6 +36,12 @@ export async function PATCH(request: Request) {
   }
 
   if (targetId) {
+    const notification = await prisma.notification.findUnique({
+      where: { id: targetId },
+    });
+    if (!notification || notification.userId !== session.userId) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
     await prisma.notification.update({
       where: { id: targetId },
       data: { read: true },

@@ -31,6 +31,51 @@ export async function POST(request: Request) {
 
   const { title, amount, paidById, category, date, note, splitType, splits } = parsed.data;
 
+  if (!splits || splits.length === 0) {
+    return NextResponse.json({ error: "At least one split member is required" }, { status: 400 });
+  }
+
+  // Validate paidById is a group member
+  const paidByMember = await prisma.groupMember.findUnique({
+    where: { userId_groupId: { userId: paidById, groupId } },
+  });
+  if (!paidByMember) {
+    return NextResponse.json({ error: "Payer must be a group member" }, { status: 400 });
+  }
+
+  // Validate all split userIds are group members
+  const splitUserIds = splits.map((s: any) => s.userId);
+  const splitMembers = await prisma.groupMember.findMany({
+    where: { groupId, userId: { in: splitUserIds } },
+  });
+  if (splitMembers.length !== splitUserIds.length) {
+    return NextResponse.json({ error: "All split members must be in the group" }, { status: 400 });
+  }
+
+  // Validate split amounts based on type
+  if (splitType === "EXACT") {
+    const total = splits.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
+    if (Math.abs(total - amount) > 0.01) {
+      return NextResponse.json(
+        { error: `Exact amounts must sum to ${amount}. Current total: ${total}` },
+        { status: 400 }
+      );
+    }
+  } else if (splitType === "PERCENTAGE") {
+    const totalPct = splits.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0);
+    if (Math.abs(totalPct - 100) > 0.01) {
+      return NextResponse.json(
+        { error: `Percentages must sum to 100%. Current total: ${totalPct}%` },
+        { status: 400 }
+      );
+    }
+  } else if (splitType === "SHARES") {
+    const totalShares = splits.reduce((sum: number, s: any) => sum + (s.shares || 0), 0);
+    if (totalShares <= 0) {
+      return NextResponse.json({ error: "Total shares must be greater than 0" }, { status: 400 });
+    }
+  }
+
   // Compute split amounts based on type
   const computedSplits = computeSplits(splitType, amount, splits);
 
@@ -114,12 +159,19 @@ function computeSplits(
   switch (splitType) {
     case "EQUAL": {
       const perPerson = Math.round((totalAmount / splits.length) * 100) / 100;
-      return splits.map((s) => ({
+      const result = splits.map((s) => ({
         userId: s.userId,
         amount: perPerson,
         percentage: null,
         shares: null,
       }));
+      // Assign rounding remainder to last person
+      const distributed = perPerson * splits.length;
+      const remainder = Math.round((totalAmount - distributed) * 100) / 100;
+      if (remainder !== 0 && result.length > 0) {
+        result[result.length - 1].amount = Math.round((result[result.length - 1].amount + remainder) * 100) / 100;
+      }
+      return result;
     }
     case "EXACT": {
       return splits.map((s) => ({

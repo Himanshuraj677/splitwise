@@ -33,10 +33,10 @@ export async function PATCH(
   const updated = await prisma.expense.update({
     where: { id },
     data: {
-      ...(title && { title }),
-      ...(amount && { amount }),
-      ...(category && { category }),
-      ...(date && { date: new Date(date) }),
+      ...(title !== undefined && title !== "" && { title }),
+      ...(amount !== undefined && amount !== null && { amount: Number(amount) }),
+      ...(category !== undefined && { category }),
+      ...(date !== undefined && { date: new Date(date) }),
       ...(note !== undefined && { note }),
     },
     include: {
@@ -44,6 +44,34 @@ export async function PATCH(
       splits: { include: { user: { select: { id: true, name: true } } } },
     },
   });
+
+  // If amount changed, recalculate splits proportionally
+  if (amount !== undefined && amount !== null && Number(amount) !== expense.amount) {
+    const newAmount = Number(amount);
+    const oldAmount = expense.amount;
+    const existingSplits = await prisma.expenseSplit.findMany({
+      where: { expenseId: id },
+    });
+
+    for (const split of existingSplits) {
+      const ratio = oldAmount > 0 ? split.amount / oldAmount : 1 / existingSplits.length;
+      const newSplitAmount = Math.round(ratio * newAmount * 100) / 100;
+      await prisma.expenseSplit.update({
+        where: { id: split.id },
+        data: { amount: newSplitAmount },
+      });
+    }
+
+    // Re-fetch to return updated splits
+    const refreshed = await prisma.expense.findUnique({
+      where: { id },
+      include: {
+        paidBy: { select: { id: true, name: true } },
+        splits: { include: { user: { select: { id: true, name: true } } } },
+      },
+    });
+    return NextResponse.json({ expense: refreshed });
+  }
 
   return NextResponse.json({ expense: updated });
 }

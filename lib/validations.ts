@@ -58,7 +58,7 @@ export const expenseSchema = z.object({
       percentage: z.number().optional(),
       shares: z.number().optional(),
     })
-  ),
+  ).min(1, "At least one split member is required"),
 });
 
 export const settlementSchema = z.object({

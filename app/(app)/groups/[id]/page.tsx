@@ -146,7 +146,8 @@ export default function GroupDetailPage() {
 
   async function addExpense() {
     if (!expenseTitle || !expenseAmount || !expensePaidBy) return;
-    setSubmitting(true);
+
+    const totalAmount = parseFloat(expenseAmount);
 
     const members =
       selectedMembers.length > 0
@@ -164,6 +165,34 @@ export default function GroupDetailPage() {
       }
       return base;
     });
+
+    // Client-side validation for EXACT splits
+    if (expenseSplitType === "EXACT") {
+      const total = splits.reduce((sum: number, s: any) => sum + (s.amount || 0), 0);
+      if (Math.abs(total - totalAmount) > 0.01) {
+        toast({
+          title: "Invalid split",
+          description: `Exact amounts must sum to ₹${totalAmount}. Current total: ₹${total.toFixed(2)}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // Client-side validation for PERCENTAGE splits
+    if (expenseSplitType === "PERCENTAGE") {
+      const totalPct = splits.reduce((sum: number, s: any) => sum + (s.percentage || 0), 0);
+      if (Math.abs(totalPct - 100) > 0.01) {
+        toast({
+          title: "Invalid split",
+          description: `Percentages must sum to 100%. Current total: ${totalPct.toFixed(2)}%`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    setSubmitting(true);
 
     const res = await fetch("/api/expenses", {
       method: "POST",
@@ -534,6 +563,39 @@ export default function GroupDetailPage() {
                         />
                       </div>
                     ))}
+                    {/* Show running total vs expected */}
+                    {expenseSplitType === "EXACT" && expenseAmount && (
+                      <div className={`text-sm font-medium ${
+                        Math.abs(
+                          Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+                          - parseFloat(expenseAmount)
+                        ) <= 0.01
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}>
+                        Total: ₹{Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0).toFixed(2)} / ₹{parseFloat(expenseAmount).toFixed(2)}
+                        {Math.abs(
+                          Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+                          - parseFloat(expenseAmount)
+                        ) > 0.01 && (
+                          <span className="ml-2">
+                            (₹{(parseFloat(expenseAmount) - Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)).toFixed(2)} remaining)
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {expenseSplitType === "PERCENTAGE" && (
+                      <div className={`text-sm font-medium ${
+                        Math.abs(
+                          Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+                          - 100
+                        ) <= 0.01
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}>
+                        Total: {Object.values(splitAmounts).reduce((sum, v) => sum + (parseFloat(v) || 0), 0).toFixed(2)}% / 100%
+                      </div>
+                    )}
                   </div>
                 )}
 
