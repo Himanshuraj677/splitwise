@@ -30,6 +30,9 @@ export async function POST(request: Request) {
   }
 
   const { title, amount, paidById, category, date, note, splitType, splits } = parsed.data;
+  const tags: string[] = Array.isArray(body.tags) ? body.tags.filter((t: any) => typeof t === "string" && t.trim()) : [];
+  const currency: string | null = typeof body.currency === "string" ? body.currency : null;
+  const requireApproval = body.requireApproval === true;
 
   if (!splits || splits.length === 0) {
     return NextResponse.json({ error: "At least one split member is required" }, { status: 400 });
@@ -89,6 +92,9 @@ export async function POST(request: Request) {
       date: new Date(date),
       note: note || null,
       splitType,
+      tags,
+      currency,
+      approvalStatus: requireApproval ? "PENDING" : "APPROVED",
       splits: {
         create: computedSplits.map((s) => ({
           userId: s.userId,

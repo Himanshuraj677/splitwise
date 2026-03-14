@@ -58,3 +58,35 @@ export function getCategoryInfo(value: string) {
     }
   );
 }
+
+export const SUPPORTED_CURRENCIES = [
+  { code: "INR", symbol: "₹", name: "Indian Rupee" },
+  { code: "USD", symbol: "$", name: "US Dollar" },
+  { code: "EUR", symbol: "€", name: "Euro" },
+  { code: "GBP", symbol: "£", name: "British Pound" },
+  { code: "JPY", symbol: "¥", name: "Japanese Yen" },
+  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
+  { code: "SGD", symbol: "S$", name: "Singapore Dollar" },
+  { code: "AED", symbol: "د.إ", name: "UAE Dirham" },
+] as const;
+
+// Approximate exchange rates to INR
+const EXCHANGE_RATES_TO_INR: Record<string, number> = {
+  INR: 1,
+  USD: 83.5,
+  EUR: 90.5,
+  GBP: 105.5,
+  JPY: 0.56,
+  AUD: 54.5,
+  CAD: 62.0,
+  SGD: 62.5,
+  AED: 22.7,
+};
+
+export function convertToGroupCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
+  if (fromCurrency === toCurrency) return amount;
+  const inINR = amount * (EXCHANGE_RATES_TO_INR[fromCurrency] || 1);
+  const result = inINR / (EXCHANGE_RATES_TO_INR[toCurrency] || 1);
+  return Math.round(result * 100) / 100;
+}

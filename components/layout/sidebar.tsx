@@ -17,6 +17,8 @@ import {
   Sun,
   Moon,
   Monitor,
+  Search,
+  Star,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,8 +29,10 @@ import { useTheme } from "@/components/theme-provider";
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/groups", label: "Groups", icon: Users },
+  { href: "/search", label: "Search", icon: Search },
   { href: "/personal-expenses", label: "Personal Expenses", icon: Receipt },
   { href: "/settlements", label: "Settlements", icon: HandCoins },
+  { href: "/starred", label: "Starred", icon: Star },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/notifications", label: "Notifications", icon: Bell },
   { href: "/profile", label: "Profile", icon: UserCircle },

@@ -33,6 +33,10 @@ model User {
   notifications    Notification[]
   recurringExpenses RecurringExpense[]
   activityLogs       ActivityLog[]
+  chatMessages     ChatMessage[]
+  reminders        Reminder[]
+  starredExpenses  StarredExpense[]
+  expenseTemplates ExpenseTemplate[]
 
   @@index([email])
 }
@@ -44,6 +48,7 @@ model Group {
   currency    String    @default("INR")
   groupType   GroupType @default(FRIENDS)
   archived    Boolean   @default(false)
+  inviteLink  String?   @unique
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -52,8 +57,10 @@ model Group {
   settlements  Settlement[]
   invitations  Invitation[]
   activityLogs ActivityLog[]
+  chatMessages ChatMessage[]
 
   @@index([name])
+  @@index([inviteLink])
 }
 
 enum GroupType {
@@ -86,16 +93,21 @@ enum MemberRole {
 }
 
 model Expense {
-  id          String      @id @default(cuid())
-  title       String
-  amount      Float
-  category    String      @default("other")
-  date        DateTime    @default(now())
-  note        String?
-  receiptUrl  String?
-  splitType   SplitType   @default(EQUAL)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id             String         @id @default(cuid())
+  title          String
+  amount         Float
+  category       String         @default("other")
+  date           DateTime       @default(now())
+  note           String?
+  receiptUrl     String?
+  splitType      SplitType      @default(EQUAL)
+  tags           String[]       @default([])
+  currency       String?
+  approvalStatus ApprovalStatus @default(APPROVED)
+  isDeleted      Boolean        @default(false)
+  deletedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 
   paidById    String
   groupId     String
@@ -104,10 +116,19 @@ model Expense {
 
   splits      ExpenseSplit[]
   comments    Comment[]
+  starred     StarredExpense[]
 
   @@index([groupId])
   @@index([paidById])
   @@index([date])
+  @@index([isDeleted])
+  @@index([approvalStatus])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }
 
 enum SplitType {
@@ -245,6 +266,10 @@ enum NotificationType {
   MEMBER_JOINED
   MEMBER_LEFT
   ROLE_CHANGED
+  EXPENSE_APPROVED
+  EXPENSE_REJECTED
+  REMINDER
+  CHAT_MESSAGE
 }
 
 model RecurringExpense {
@@ -285,4 +310,77 @@ model ActivityLog {
 
   @@index([groupId])
   @@index([createdAt])
+}
+
+// Feature 9: Group Chat
+model ChatMessage {
+  id        String   @id @default(cuid())
+  text      String
+  createdAt DateTime @default(now())
+
+  groupId   String
+  userId    String
+  group     Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user      User  @relation(fields: [userId], references: [id])
+
+  @@index([groupId])
+  @@index([createdAt])
+}
+
+// Feature 8: Reminders
+model Reminder {
+  id         String        @id @default(cuid())
+  message    String
+  amount     Float?
+  status     ReminderStatus @default(PENDING)
+  sendAt     DateTime      @default(now())
+  sentAt     DateTime?
+  createdAt  DateTime      @default(now())
+
+  fromUserId String
+  toUserId   String
+  groupId    String?
+  fromUser   User   @relation(fields: [fromUserId], references: [id])
+
+  @@index([toUserId])
+  @@index([fromUserId])
+  @@index([status])
+}
+
+enum ReminderStatus {
+  PENDING
+  SENT
+  DISMISSED
+}
+
+// Feature 14: Starred/Pinned Expenses
+model StarredExpense {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId    String
+  expenseId String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expense   Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, expenseId])
+  @@index([userId])
+}
+
+// Feature 13: Expense Templates
+model ExpenseTemplate {
+  id          String    @id @default(cuid())
+  name        String
+  title       String
+  amount      Float?
+  category    String    @default("other")
+  splitType   SplitType @default(EQUAL)
+  splits      Json?     // Store split config as JSON
+  groupId     String?
+  createdAt   DateTime  @default(now())
+
+  userId      String
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

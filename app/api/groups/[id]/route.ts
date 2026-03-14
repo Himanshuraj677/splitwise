@@ -22,6 +22,7 @@ export async function GET(
         include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
       },
       expenses: {
+        where: { isDeleted: false },
         include: {
           paidBy: { select: { id: true, name: true } },
           splits: {

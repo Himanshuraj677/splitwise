@@ -243,6 +243,29 @@ export async function sendPasswordChangedEmail(email: string, name: string) {
   await sendEmail(email, "Your password has been changed", html);
 }
 
+export async function sendReminderEmail(
+  email: string,
+  name: string,
+  fromName: string,
+  amount: number | null,
+  message: string | null
+) {
+  const amountText = amount ? ` of ₹${amount}` : "";
+  const html = baseTemplate(`
+    <h2 style="color:#18181b; margin:0 0 12px;">Payment Reminder 🔔</h2>
+    <p style="color:#3f3f46; line-height:1.6;">
+      Hi ${name}, <strong>${fromName}</strong> sent you a reminder about a pending payment${amountText}.
+    </p>
+    ${message ? `<p style="color:#3f3f46; line-height:1.6; font-style: italic;">"${message}"</p>` : ""}
+    <div style="text-align:center; margin-top:24px;">
+      <a href="${APP_URL}/settlements" style="background:#16a34a; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:600;">
+        View Settlements
+      </a>
+    </div>
+  `);
+  await sendEmail(email, `Payment Reminder from ${fromName}`, html);
+}
+
 // ─── Utility: generate OTP ──────────────────────────────────────────
 export function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();

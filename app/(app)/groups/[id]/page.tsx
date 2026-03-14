@@ -58,6 +58,19 @@ import {
   UserMinus,
   LogOut,
   Activity,
+  Star,
+  Upload,
+  MessageSquare,
+  Trophy,
+  Send,
+  Bell,
+  Undo2,
+  Tag,
+  Smartphone,
+  Image as ImageIcon,
+  BookTemplate,
+  Check,
+  X as XIcon,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -118,6 +131,31 @@ export default function GroupDetailPage() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [activityLoading, setActivityLoading] = useState(false);
 
+  // Chat
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatText, setChatText] = useState("");
+
+  // Leaderboard
+  const [leaderboard, setLeaderboard] = useState<any>(null);
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false);
+
+  // Starred expenses
+  const [starredIds, setStarredIds] = useState<Set<string>>(new Set());
+
+  // Tags for expense form
+  const [expenseTags, setExpenseTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+
+  // Templates
+  const [templates, setTemplates] = useState<any[]>([]);
+
+  // Receipt upload
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+
+  // Deleted expenses for undo
+  const [deletedExpenses, setDeletedExpenses] = useState<any[]>([]);
+
   // Current user role in this group
   const myRole = data?.group.members.find((m: any) => m.userId === currentUserId)?.role;
   const isOwner = myRole === "OWNER";
@@ -142,6 +180,14 @@ export default function GroupDetailPage() {
       .then((d) => {
         if (d.user) setCurrentUserId(d.user.id);
       });
+    loadStarred();
+    loadTemplates();
+  }, [loadGroup]);
+
+  // Real-time polling every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(loadGroup, 30000);
+    return () => clearInterval(interval);
   }, [loadGroup]);
 
   async function addExpense() {
@@ -207,10 +253,16 @@ export default function GroupDetailPage() {
         note: expenseNote,
         splitType: expenseSplitType,
         splits,
+        tags: expenseTags,
       }),
     });
 
     if (res.ok) {
+      const created = await res.json();
+      // Upload receipt if attached
+      if (receiptFile && created.expense?.id) {
+        await uploadReceipt(created.expense.id, receiptFile);
+      }
       toast({ title: "Expense added!" });
       setExpenseOpen(false);
       resetExpenseForm();
@@ -234,6 +286,9 @@ export default function GroupDetailPage() {
     setExpenseSplitType("EQUAL");
     setSelectedMembers([]);
     setSplitAmounts({});
+    setExpenseTags([]);
+    setTagInput("");
+    setReceiptFile(null);
   }
 
   async function deleteExpense(expenseId: string) {
@@ -345,6 +400,201 @@ export default function GroupDetailPage() {
       setActivityLogs(data.logs || []);
     }
     setActivityLoading(false);
+  }
+
+  async function loadChat() {
+    setChatLoading(true);
+    const res = await fetch(`/api/chat?groupId=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setChatMessages(data.messages || []);
+    }
+    setChatLoading(false);
+  }
+
+  async function loadLeaderboard() {
+    setLeaderboardLoading(true);
+    const res = await fetch(`/api/groups/${id}/leaderboard`);
+    if (res.ok) {
+      const data = await res.json();
+      setLeaderboard(data);
+    }
+    setLeaderboardLoading(false);
+  }
+
+  async function loadStarred() {
+    const res = await fetch("/api/starred");
+    if (res.ok) {
+      const data = await res.json();
+      setStarredIds(new Set(data.starred?.map((s: any) => s.expenseId) || []));
+    }
+  }
+
+  async function loadTemplates() {
+    const res = await fetch(`/api/templates?groupId=${id}`);
+    if (res.ok) {
+      const data = await res.json();
+      setTemplates(data.templates || []);
+    }
+  }
+
+  async function toggleStar(expenseId: string) {
+    const res = await fetch("/api/starred", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ expenseId }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setStarredIds((prev) => {
+        const next = new Set(prev);
+        if (data.starred) next.add(expenseId);
+        else next.delete(expenseId);
+        return next;
+      });
+    }
+  }
+
+  async function sendChatMessage() {
+    if (!chatText.trim()) return;
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ groupId: id, text: chatText }),
+    });
+    if (res.ok) {
+      setChatText("");
+      loadChat();
+    }
+  }
+
+  async function sendReminder(toUserId: string, amount: number) {
+    const res = await fetch("/api/reminders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toUserId, groupId: id, amount, message: `You owe ${formatCurrency(amount)}` }),
+    });
+    if (res.ok) {
+      toast({ title: "Reminder sent!" });
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function approveExpense(expenseId: string, action: "approve" | "reject") {
+    const res = await fetch(`/api/expenses/${expenseId}/approve`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    if (res.ok) {
+      toast({ title: action === "approve" ? "Expense approved" : "Expense rejected" });
+      loadGroup();
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function restoreExpense(expenseId: string) {
+    const res = await fetch(`/api/expenses/${expenseId}/restore`, { method: "PATCH" });
+    if (res.ok) {
+      toast({ title: "Expense restored!" });
+      loadGroup();
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function uploadReceipt(expenseId: string, file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("expenseId", expenseId);
+    const res = await fetch("/api/upload", { method: "POST", body: formData });
+    if (res.ok) {
+      toast({ title: "Receipt uploaded!" });
+      loadGroup();
+    } else {
+      const err = await res.json();
+      toast({ title: "Error", description: err.error, variant: "destructive" });
+    }
+  }
+
+  async function saveAsTemplate() {
+    if (!expenseTitle || !expenseAmount) return;
+    const members = selectedMembers.length > 0
+      ? selectedMembers
+      : data!.group.members.map((m: any) => m.userId);
+    const splits = members.map((userId: string) => {
+      const base: any = { userId };
+      if (expenseSplitType === "EXACT") base.amount = parseFloat(splitAmounts[userId] || "0");
+      else if (expenseSplitType === "PERCENTAGE") base.percentage = parseFloat(splitAmounts[userId] || "0");
+      else if (expenseSplitType === "SHARES") base.shares = parseInt(splitAmounts[userId] || "1");
+      return base;
+    });
+    const res = await fetch("/api/templates", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: expenseTitle,
+        groupId: id,
+        title: expenseTitle,
+        amount: parseFloat(expenseAmount),
+        category: expenseCategory,
+        splitType: expenseSplitType,
+        splits,
+      }),
+    });
+    if (res.ok) {
+      toast({ title: "Template saved!" });
+      loadTemplates();
+    }
+  }
+
+  function loadFromTemplate(tmpl: any) {
+    setExpenseTitle(tmpl.title);
+    setExpenseAmount(String(tmpl.amount));
+    setExpenseCategory(tmpl.category || "food");
+    setExpenseSplitType(tmpl.splitType || "EQUAL");
+    if (tmpl.splits && Array.isArray(tmpl.splits)) {
+      const amounts: Record<string, string> = {};
+      const memberIds: string[] = [];
+      tmpl.splits.forEach((s: any) => {
+        memberIds.push(s.userId);
+        if (s.amount) amounts[s.userId] = String(s.amount);
+        else if (s.percentage) amounts[s.userId] = String(s.percentage);
+        else if (s.shares) amounts[s.userId] = String(s.shares);
+      });
+      setSelectedMembers(memberIds);
+      setSplitAmounts(amounts);
+    }
+    setExpenseOpen(true);
+  }
+
+  async function simplifyDebts() {
+    const res = await fetch(`/api/groups/${id}/simplify-debts`);
+    if (res.ok) {
+      const result = await res.json();
+      toast({
+        title: "Debts Simplified!",
+        description: `Reduced from ${result.originalCount} to ${result.simplifiedCount} transactions`,
+      });
+      // Update local debts display
+      if (data) {
+        setData({
+          ...data,
+          debts: result.simplifiedDebts.map((d: any) => ({
+            from: d.from,
+            fromName: d.fromName,
+            to: d.to,
+            toName: d.toName,
+            amount: d.amount,
+          })),
+        });
+      }
+    }
   }
 
   if (loading || !data) {
@@ -607,18 +857,90 @@ export default function GroupDetailPage() {
                     placeholder="Add a note..."
                   />
                 </div>
-                <Button
-                  onClick={addExpense}
-                  className="w-full"
-                  disabled={
-                    !expenseTitle || !expenseAmount || !expensePaidBy || submitting
-                  }
-                >
-                  {submitting && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+
+                {/* Tags */}
+                <div className="space-y-2">
+                  <Label>Tags (optional)</Label>
+                  <div className="flex flex-wrap gap-1 mb-2">
+                    {expenseTags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="text-xs gap-1">
+                        {tag}
+                        <button
+                          type="button"
+                          onClick={() => setExpenseTags((prev) => prev.filter((t) => t !== tag))}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      placeholder="Add a tag..."
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && tagInput.trim()) {
+                          e.preventDefault();
+                          if (!expenseTags.includes(tagInput.trim())) {
+                            setExpenseTags((prev) => [...prev, tagInput.trim()]);
+                          }
+                          setTagInput("");
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (tagInput.trim() && !expenseTags.includes(tagInput.trim())) {
+                          setExpenseTags((prev) => [...prev, tagInput.trim()]);
+                        }
+                        setTagInput("");
+                      }}
+                    >
+                      <Tag className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Receipt Upload */}
+                <div className="space-y-2">
+                  <Label>Receipt (optional)</Label>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setReceiptFile(e.target.files?.[0] || null)}
+                  />
+                  {receiptFile && (
+                    <p className="text-xs text-muted-foreground">{receiptFile.name}</p>
                   )}
-                  Add Expense
-                </Button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={addExpense}
+                    className="flex-1"
+                    disabled={
+                      !expenseTitle || !expenseAmount || !expensePaidBy || submitting
+                    }
+                  >
+                    {submitting && (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    )}
+                    Add Expense
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={saveAsTemplate}
+                    disabled={!expenseTitle || !expenseAmount}
+                    title="Save as template"
+                  >
+                    <BookTemplate className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -627,17 +949,32 @@ export default function GroupDetailPage() {
 
       {/* Tabs */}
       <Tabs defaultValue="expenses">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="balances">Balances</TabsTrigger>
           <TabsTrigger value="members">Members</TabsTrigger>
           <TabsTrigger value="settlements">Settlements</TabsTrigger>
           <TabsTrigger value="activity" onClick={loadActivity}>Activity</TabsTrigger>
+          <TabsTrigger value="chat" onClick={loadChat}>Chat</TabsTrigger>
+          <TabsTrigger value="leaderboard" onClick={loadLeaderboard}>Leaderboard</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         {/* Expenses Timeline */}
         <TabsContent value="expenses" className="space-y-4">
+          {/* Templates quick-load bar */}
+          {templates.length > 0 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-2">
+              <span className="text-sm font-medium text-muted-foreground shrink-0">Templates:</span>
+              {templates.map((tmpl: any) => (
+                <Button key={tmpl.id} variant="outline" size="sm" onClick={() => loadFromTemplate(tmpl)}>
+                  <BookTemplate className="mr-1 h-3 w-3" />
+                  {tmpl.name}
+                </Button>
+              ))}
+            </div>
+          )}
+
           {group.expenses.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center py-12">
@@ -647,28 +984,48 @@ export default function GroupDetailPage() {
           ) : (
             group.expenses.map((expense: any) => {
               const cat = getCategoryInfo(expense.category);
+              const isStarred = starredIds.has(expense.id);
               return (
-                <Card key={expense.id}>
+                <Card key={expense.id} className={expense.approvalStatus === "PENDING" ? "border-yellow-500/50" : expense.approvalStatus === "REJECTED" ? "border-destructive/50 opacity-60" : ""}>
                   <CardContent className="flex items-center justify-between p-4">
                     <div className="flex items-center gap-3">
                       <span className="text-2xl">{cat.icon}</span>
                       <div>
-                        <p className="font-semibold">{expense.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold">{expense.title}</p>
+                          {expense.approvalStatus === "PENDING" && (
+                            <Badge variant="outline" className="text-yellow-600 border-yellow-600 text-xs">Pending</Badge>
+                          )}
+                          {expense.approvalStatus === "REJECTED" && (
+                            <Badge variant="destructive" className="text-xs">Rejected</Badge>
+                          )}
+                          {expense.receiptUrl && (
+                            <Badge variant="outline" className="text-xs">
+                              <ImageIcon className="mr-1 h-3 w-3" />Receipt
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-muted-foreground">
                           {expense.paidBy.name} paid{" "}
                           {formatCurrency(expense.amount)}
                         </p>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {expense.splits.map((s: any) => (
-                            <Badge
-                              key={s.userId}
-                              variant="outline"
-                              className="text-xs"
-                            >
+                            <Badge key={s.userId} variant="outline" className="text-xs">
                               {s.user.name}: {formatCurrency(s.amount)}
                             </Badge>
                           ))}
                         </div>
+                        {/* Tags */}
+                        {expense.tags && expense.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {expense.tags.map((tag: string) => (
+                              <Badge key={tag} variant="secondary" className="text-xs">
+                                <Tag className="mr-1 h-2 w-2" />{tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -680,6 +1037,15 @@ export default function GroupDetailPage() {
                           {formatRelativeDate(expense.date)}
                         </p>
                       </div>
+                      {/* Star button */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleStar(expense.id)}
+                        className={isStarred ? "text-yellow-500" : "text-muted-foreground"}
+                      >
+                        <Star className={`h-4 w-4 ${isStarred ? "fill-current" : ""}`} />
+                      </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon">
@@ -687,6 +1053,37 @@ export default function GroupDetailPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {/* Approve/Reject for admins on pending expenses */}
+                          {canManage && expense.approvalStatus === "PENDING" && (
+                            <>
+                              <DropdownMenuItem onClick={() => approveExpense(expense.id, "approve")}>
+                                <Check className="mr-2 h-4 w-4 text-green-600" />
+                                Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => approveExpense(expense.id, "reject")}>
+                                <XIcon className="mr-2 h-4 w-4 text-destructive" />
+                                Reject
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          {/* Upload receipt */}
+                          <DropdownMenuItem asChild>
+                            <label className="cursor-pointer">
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Receipt
+                              <input
+                                type="file"
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) uploadReceipt(expense.id, file);
+                                }}
+                              />
+                            </label>
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-destructive"
                             onClick={() => deleteExpense(expense.id)}
@@ -741,7 +1138,12 @@ export default function GroupDetailPage() {
           {debts.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Suggested Settlements</CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Suggested Settlements</CardTitle>
+                  <Button variant="outline" size="sm" onClick={simplifyDebts}>
+                    Simplify Debts
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {debts.map((d, i) => (
@@ -754,9 +1156,38 @@ export default function GroupDetailPage() {
                       <ArrowRight className="h-4 w-4" />
                       <span className="font-medium">{d.toName}</span>
                     </div>
-                    <span className="font-bold text-primary">
-                      {formatCurrency(d.amount)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-primary">
+                        {formatCurrency(d.amount)}
+                      </span>
+                      {/* UPI Pay button */}
+                      {d.from === currentUserId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            window.open(
+                              `upi://pay?pn=${encodeURIComponent(d.toName)}&am=${d.amount}&tn=${encodeURIComponent(`Split payment to ${d.toName}`)}&cu=INR`,
+                              "_blank"
+                            );
+                          }}
+                        >
+                          <Smartphone className="mr-1 h-3 w-3" />
+                          UPI Pay
+                        </Button>
+                      )}
+                      {/* Remind button (if they owe you) */}
+                      {d.to === currentUserId && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => sendReminder(d.from, d.amount)}
+                        >
+                          <Bell className="mr-1 h-3 w-3" />
+                          Remind
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </CardContent>
@@ -1056,6 +1487,141 @@ export default function GroupDetailPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Chat */}
+        <TabsContent value="chat" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Group Chat
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {chatLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                  {chatMessages.length === 0 ? (
+                    <p className="text-muted-foreground text-center py-8">No messages yet. Start the conversation!</p>
+                  ) : (
+                    chatMessages.map((msg: any) => (
+                      <div
+                        key={msg.id}
+                        className={`flex gap-2 ${msg.userId === currentUserId ? "flex-row-reverse" : ""}`}
+                      >
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback>{msg.user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                        </Avatar>
+                        <div className={`rounded-lg p-3 max-w-[70%] ${msg.userId === currentUserId ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                          <p className="text-xs font-medium mb-1">{msg.user.name}</p>
+                          <p className="text-sm break-words">{msg.text}</p>
+                          <p className="text-xs opacity-70 mt-1">{formatRelativeDate(msg.createdAt)}</p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+              <div className="flex gap-2 mt-4">
+                <Input
+                  value={chatText}
+                  onChange={(e) => setChatText(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendChatMessage()}
+                />
+                <Button onClick={sendChatMessage} size="icon" disabled={!chatText.trim()}>
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Leaderboard */}
+        <TabsContent value="leaderboard" className="space-y-4">
+          {leaderboardLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : !leaderboard ? (
+            <Card>
+              <CardContent className="flex flex-col items-center py-12">
+                <p className="text-muted-foreground">Click the tab to load leaderboard</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {/* Group Stats Overview */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold">{formatCurrency(leaderboard.groupStats?.totalExpenses || 0)}</p>
+                    <p className="text-xs text-muted-foreground">Total Spent</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold">{leaderboard.groupStats?.expenseCount || 0}</p>
+                    <p className="text-xs text-muted-foreground">Expenses</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold">{formatCurrency(leaderboard.groupStats?.averageExpense || 0)}</p>
+                    <p className="text-xs text-muted-foreground">Average</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4 text-center">
+                    <p className="text-2xl font-bold">{formatCurrency(leaderboard.groupStats?.biggestExpense?.amount || 0)}</p>
+                    <p className="text-xs text-muted-foreground">Biggest Expense</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Member Leaderboard */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5" />
+                    Member Leaderboard
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {(leaderboard.members || [])
+                      .sort((a: any, b: any) => b.totalPaid - a.totalPaid)
+                      .map((member: any, idx: number) => (
+                        <div key={member.userId} className="flex items-center justify-between rounded-lg border p-3">
+                          <div className="flex items-center gap-3">
+                            <span className="text-lg font-bold text-muted-foreground w-6">
+                              {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : `#${idx + 1}`}
+                            </span>
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>{member.name.charAt(0).toUpperCase()}</AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{member.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {member.expenseCount} expenses · Top: {member.topCategory || "N/A"}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold">{formatCurrency(member.totalPaid)}</p>
+                            <p className="text-xs text-muted-foreground">paid</p>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </TabsContent>
 
         {/* Analytics */}

@@ -101,6 +101,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Not authorized" }, { status: 403 });
   }
 
-  await prisma.expense.delete({ where: { id } });
+  await prisma.expense.update({
+    where: { id },
+    data: { isDeleted: true, deletedAt: new Date() },
+  });
   return NextResponse.json({ success: true });
 }
