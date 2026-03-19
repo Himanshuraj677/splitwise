@@ -28,6 +28,10 @@ model User {
   settlementsReceived Settlement[]  @relation("SettlementReceiver")
   invitationsSent  Invitation[]     @relation("InvitedBy")
   personalExpenses PersonalExpense[]
+  incomeEntries    IncomeEntry[]
+  investments      Investment[]
+  liabilities      Liability[]
+  savingsGoals     SavingsGoal[]
   budgets          Budget[]
   comments         Comment[]
   notifications    Notification[]
@@ -210,6 +214,126 @@ model PersonalExpense {
 
   @@index([userId])
   @@index([date])
+}
+
+model IncomeEntry {
+  id         String     @id @default(cuid())
+  source     String
+  type       IncomeType @default(OTHER)
+  amount     Float
+  receivedAt DateTime   @default(now())
+  recurring  Boolean    @default(false)
+  note       String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  userId     String
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([receivedAt])
+  @@index([type])
+}
+
+enum IncomeType {
+  SALARY
+  FREELANCE
+  BUSINESS
+  RENTAL
+  INTEREST
+  DIVIDEND
+  BONUS
+  REFUND
+  GIFT
+  OTHER
+}
+
+model Investment {
+  id             String         @id @default(cuid())
+  name           String
+  type           InvestmentType @default(OTHER)
+  investedAmount Float
+  currentValue   Float
+  investedAt     DateTime       @default(now())
+  platform       String?
+  note           String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  userId         String
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([investedAt])
+  @@index([type])
+}
+
+enum InvestmentType {
+  STOCK
+  MUTUAL_FUND
+  ETF
+  FIXED_DEPOSIT
+  CRYPTO
+  GOLD
+  REAL_ESTATE
+  PPF
+  NPS
+  BOND
+  OTHER
+}
+
+model Liability {
+  id                String        @id @default(cuid())
+  name              String
+  type              LiabilityType @default(LOAN)
+  totalAmount       Float
+  outstandingAmount Float
+  interestRate      Float?
+  minimumDue        Float?
+  dueDate           DateTime?
+  note              String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  userId            String
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([dueDate])
+  @@index([type])
+}
+
+enum LiabilityType {
+  LOAN
+  CREDIT_CARD
+  MORTGAGE
+  PERSONAL_BORROW
+  EMI
+  OTHER
+}
+
+model SavingsGoal {
+  id           String     @id @default(cuid())
+  title        String
+  targetAmount Float
+  currentAmount Float     @default(0)
+  targetDate   DateTime?
+  status       GoalStatus @default(ACTIVE)
+  note         String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum GoalStatus {
+  ACTIVE
+  ACHIEVED
+  PAUSED
 }
 
 model Budget {

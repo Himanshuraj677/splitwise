@@ -16,7 +16,7 @@ export default async function HomePage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <div className="flex items-center gap-2">
             <Wallet className="h-7 w-7 text-primary" />
-            <span className="text-xl font-bold">SplitWise</span>
+            <span className="text-xl font-bold">LedgerNest</span>
           </div>
           <div className="flex items-center gap-3">
             <Link
@@ -42,17 +42,17 @@ export default async function HomePage() {
           <div className="mx-auto max-w-3xl text-center">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border bg-card px-4 py-1.5 text-sm text-muted-foreground">
               <Zap className="h-3.5 w-3.5 text-primary" />
-              Smart expense splitting for modern teams
+              Smart personal and shared finance management
             </div>
             <h1 className="mb-6 text-4xl font-extrabold tracking-tight md:text-6xl lg:text-7xl">
-              Split expenses.{" "}
+              Track money.{" "}
               <span className="bg-gradient-to-r from-primary to-emerald-400 bg-clip-text text-transparent">
-                Not friendships.
+                Build wealth.
               </span>
             </h1>
             <p className="mx-auto mb-10 max-w-xl text-lg text-muted-foreground md:text-xl">
-              Track shared expenses, settle debts, and keep your finances transparent
-              with your groups — roommates, trips, teams, or family.
+              Manage expenses, income sources, investments, liabilities, budgets,
+              and savings goals in one powerful workspace.
             </p>
             <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Link
@@ -76,7 +76,7 @@ export default async function HomePage() {
             {[
               { value: "100%", label: "Free to use" },
               { value: "4+", label: "Split methods" },
-              { value: "Real-time", label: "Notifications" },
+              { value: "All-in-one", label: "Finance tracking" },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <p className="text-2xl font-bold text-primary md:text-3xl">{stat.value}</p>
@@ -92,7 +92,7 @@ export default async function HomePage() {
         <div className="mx-auto max-w-6xl px-4">
           <div className="mx-auto mb-16 max-w-2xl text-center">
             <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-              Everything you need to manage shared expenses
+              Everything you need to manage complete finances
             </h2>
             <p className="text-lg text-muted-foreground">
               Powerful features designed to make expense tracking effortless.
@@ -103,33 +103,33 @@ export default async function HomePage() {
             {[
               {
                 icon: Users,
-                title: "Group Management",
+                title: "Shared Expenses",
                 desc: "Create unlimited groups for trips, roommates, teams, or any shared expense scenario.",
               },
               {
                 icon: Receipt,
-                title: "Flexible Splitting",
-                desc: "Split equally, by exact amounts, percentages, or shares — you choose what works best.",
+                title: "Personal Expense Hub",
+                desc: "Track daily personal spending with categories, notes, and budget controls.",
               },
               {
                 icon: PieChart,
-                title: "Analytics & Insights",
-                desc: "Visual dashboards showing spending trends, category breakdowns, and group statistics.",
+                title: "Income & Cashflow",
+                desc: "Record all incoming sources and understand monthly inflow vs outflow instantly.",
               },
               {
                 icon: Shield,
-                title: "Secure & Private",
-                desc: "Email verification, encrypted passwords, and secure sessions protect your data.",
+                title: "Investments & Net Worth",
+                desc: "Track portfolio value, gain/loss, liabilities, and your overall net worth journey.",
               },
               {
                 icon: Globe,
-                title: "Multi-Currency",
-                desc: "Support for multiple currencies — perfect for international trips and teams.",
+                title: "Savings Goals",
+                desc: "Create financial goals, add contributions, and monitor completion progress.",
               },
               {
                 icon: Zap,
-                title: "Smart Settlements",
-                desc: "Simplified debt calculations show the minimum payments needed to settle up.",
+                title: "Secure & Reliable",
+                desc: "Email verification, encrypted passwords, and secure sessions keep your data safe.",
               },
             ].map((feature) => (
               <div
@@ -165,18 +165,18 @@ export default async function HomePage() {
             {[
               {
                 step: "1",
-                title: "Create a Group",
-                desc: "Set up a group and invite your friends, roommates, or travel buddies.",
+                title: "Set Up Your Finance Hub",
+                desc: "Add your income sources, budgets, and money categories in minutes.",
               },
               {
                 step: "2",
-                title: "Add Expenses",
-                desc: "Log expenses as they happen. Choose who paid and how to split.",
+                title: "Track All Money Movement",
+                desc: "Log expenses, investments, liabilities, and savings progress as you go.",
               },
               {
                 step: "3",
-                title: "Settle Up",
-                desc: "See who owes whom and record payments to balance everything out.",
+                title: "Review Insights",
+                desc: "Watch cashflow trends and make smarter financial decisions every month.",
               },
             ].map((item) => (
               <div key={item.step} className="text-center">
@@ -195,10 +195,10 @@ export default async function HomePage() {
       <section className="border-t bg-card/50 py-20">
         <div className="mx-auto max-w-6xl px-4 text-center">
           <h2 className="mb-4 text-3xl font-bold md:text-4xl">
-            Ready to stop the awkward money talks?
+            Ready to take full control of your money?
           </h2>
           <p className="mx-auto mb-8 max-w-lg text-lg text-muted-foreground">
-            Join SplitWise today and make shared expenses stress-free.
+            Join LedgerNest and manage your complete financial life from one dashboard.
           </p>
           <Link
             href="/register"
@@ -216,10 +216,10 @@ export default async function HomePage() {
           <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
             <div className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
-              <span className="font-semibold">SplitWise</span>
+              <span className="font-semibold">LedgerNest</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              &copy; {new Date().getFullYear()} SplitWise. All rights reserved.
+              &copy; {new Date().getFullYear()} LedgerNest. All rights reserved.
             </p>
           </div>
         </div>

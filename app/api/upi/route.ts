@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   const note = groupName
     ? `Settlement for ${groupName}`
-    : "SplitWise Settlement";
+    : "LedgerNest Settlement";
 
   // Generate UPI deep link
   // Standard UPI intent format: upi://pay?pa=<UPI_ID>&pn=<NAME>&am=<AMOUNT>&tn=<NOTE>
