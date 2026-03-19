@@ -76,11 +76,117 @@ export const personalExpenseSchema = z.object({
   note: z.string().optional(),
 });
 
+export const personalExpenseCategorySchema = z.object({
+  name: z.string().min(2, "Category name must be at least 2 characters").max(40),
+  icon: z.string().max(8).optional(),
+});
+
+export const personalExpenseCategoryOperationSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("rename"),
+    sourceCategory: z.string().min(1),
+    targetName: z.string().min(2).max(40),
+    targetIcon: z.string().max(8).optional(),
+  }),
+  z.object({
+    action: z.literal("merge"),
+    sourceCategory: z.string().min(1),
+    targetCategory: z.string().min(1),
+  }),
+  z.object({
+    action: z.literal("delete"),
+    sourceCategory: z.string().min(1),
+    targetCategory: z.string().min(1),
+  }),
+]);
+
 export const budgetSchema = z.object({
   monthlyLimit: z.number().positive("Budget must be positive"),
   categoryBudgets: z.record(z.number()).optional(),
   month: z.number().min(1).max(12),
   year: z.number().min(2020),
+});
+
+export const incomeEntrySchema = z.object({
+  source: z.string().min(1, "Source is required"),
+  type: z
+    .enum([
+      "SALARY",
+      "FREELANCE",
+      "BUSINESS",
+      "RENTAL",
+      "INTEREST",
+      "DIVIDEND",
+      "BONUS",
+      "REFUND",
+      "GIFT",
+      "OTHER",
+    ])
+    .default("OTHER"),
+  amount: z.number().positive("Amount must be positive"),
+  receivedAt: z.string(),
+  recurring: z.boolean().optional(),
+  note: z.string().optional(),
+});
+
+export const investmentSchema = z.object({
+  name: z.string().min(1, "Investment name is required"),
+  type: z
+    .enum([
+      "STOCK",
+      "MUTUAL_FUND",
+      "ETF",
+      "FIXED_DEPOSIT",
+      "CRYPTO",
+      "GOLD",
+      "REAL_ESTATE",
+      "PPF",
+      "NPS",
+      "BOND",
+      "OTHER",
+    ])
+    .default("OTHER"),
+  investedAmount: z.number().positive("Invested amount must be positive"),
+  currentValue: z.number().nonnegative("Current value cannot be negative"),
+  investedAt: z.string(),
+  platform: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const liabilitySchema = z.object({
+  name: z.string().min(1, "Liability name is required"),
+  type: z
+    .enum(["LOAN", "CREDIT_CARD", "MORTGAGE", "PERSONAL_BORROW", "EMI", "OTHER"])
+    .default("LOAN"),
+  totalAmount: z.number().positive("Total amount must be positive"),
+  outstandingAmount: z.number().nonnegative("Outstanding amount cannot be negative"),
+  interestRate: z.number().min(0).max(100).optional(),
+  minimumDue: z.number().nonnegative().optional(),
+  dueDate: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const lendSchema = z.object({
+  friendName: z.string().min(1, "Friend name is required"),
+  friendContact: z.string().optional(),
+  principalAmount: z.number().positive("Lend amount must be positive"),
+  lentAt: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const lendReturnSchema = z.object({
+  amount: z.number().positive("Return amount must be positive"),
+  returnedAt: z.string().optional(),
+  note: z.string().optional(),
+});
+
+export const savingsGoalSchema = z.object({
+  title: z.string().min(1, "Goal title is required"),
+  targetAmount: z.number().positive("Target amount must be positive"),
+  currentAmount: z.number().nonnegative().optional(),
+  targetDate: z.string().optional(),
+  status: z.enum(["ACTIVE", "ACHIEVED", "PAUSED"]).optional(),
+  note: z.string().optional(),
 });
 
 export const inviteSchema = z.object({
@@ -99,7 +205,15 @@ export type GroupInput = z.infer<typeof groupSchema>;
 export type ExpenseInput = z.infer<typeof expenseSchema>;
 export type SettlementInput = z.infer<typeof settlementSchema>;
 export type PersonalExpenseInput = z.infer<typeof personalExpenseSchema>;
+export type PersonalExpenseCategoryInput = z.infer<typeof personalExpenseCategorySchema>;
+export type PersonalExpenseCategoryOperationInput = z.infer<typeof personalExpenseCategoryOperationSchema>;
 export type BudgetInput = z.infer<typeof budgetSchema>;
+export type IncomeEntryInput = z.infer<typeof incomeEntrySchema>;
+export type InvestmentInput = z.infer<typeof investmentSchema>;
+export type LiabilityInput = z.infer<typeof liabilitySchema>;
+export type LendInput = z.infer<typeof lendSchema>;
+export type LendReturnInput = z.infer<typeof lendReturnSchema>;
+export type SavingsGoalInput = z.infer<typeof savingsGoalSchema>;
 export type InviteInput = z.infer<typeof inviteSchema>;
 export type CommentInput = z.infer<typeof commentSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;

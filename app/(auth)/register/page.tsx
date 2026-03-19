@@ -54,7 +54,7 @@ export default function RegisterPage() {
           <Wallet className="h-6 w-6 text-primary" />
         </div>
         <CardTitle className="text-2xl">Create an account</CardTitle>
-        <CardDescription>Join SplitWise and start managing expenses</CardDescription>
+        <CardDescription>Join LedgerNest and start managing your complete finances</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit(onSubmit)}>
         <CardContent className="space-y-4">

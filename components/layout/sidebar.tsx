@@ -19,6 +19,10 @@ import {
   Monitor,
   Search,
   Star,
+  Repeat,
+  LayoutTemplate,
+  Send,
+  Download,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -30,8 +34,12 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/groups", label: "Groups", icon: Users },
   { href: "/search", label: "Search", icon: Search },
-  { href: "/personal-expenses", label: "Personal Expenses", icon: Receipt },
+  { href: "/personal-expenses", label: "Finance Hub", icon: Receipt },
   { href: "/settlements", label: "Settlements", icon: HandCoins },
+  { href: "/recurring", label: "Recurring", icon: Repeat },
+  { href: "/templates", label: "Templates", icon: LayoutTemplate },
+  { href: "/reminders", label: "Reminders", icon: Send },
+  { href: "/export-center", label: "Export Center", icon: Download },
   { href: "/starred", label: "Starred", icon: Star },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/notifications", label: "Notifications", icon: Bell },
@@ -105,7 +113,7 @@ export function Sidebar() {
         </Button>
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-primary" />
-          <span className="font-bold text-primary">SplitWise</span>
+          <span className="font-bold text-primary">LedgerNest</span>
         </div>
         <Link href="/notifications" className="relative">
           <Bell className="h-5 w-5 text-muted-foreground" />
@@ -136,7 +144,7 @@ export function Sidebar() {
           {/* Logo */}
           <div className="flex h-16 items-center gap-2 border-b px-6">
             <Wallet className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold text-primary">SplitWise</span>
+            <span className="text-xl font-bold text-primary">LedgerNest</span>
           </div>
 
           {/* Nav */}

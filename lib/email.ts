@@ -10,8 +10,8 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const FROM_NAME = process.env.EMAIL_FROM_NAME || "SplitWise";
-const FROM_EMAIL = process.env.SMTP_USER || "noreply@splitwise.com";
+const FROM_NAME = process.env.EMAIL_FROM_NAME || "LedgerNest";
+const FROM_EMAIL = process.env.SMTP_USER || "noreply@ledgernest.app";
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 function baseTemplate(content: string) {
@@ -64,7 +64,7 @@ export async function sendWelcomeEmail(email: string, name: string) {
   const html = baseTemplate(`
     <h2 style="color:#18181b; margin:0 0 12px;">Welcome, ${name}! 🎉</h2>
     <p style="color:#3f3f46; line-height:1.6;">
-      Your SplitWise account has been created successfully. You can now create groups,
+      Your LedgerNest account has been created successfully. You can now create groups,
       track expenses, split bills, and settle up with friends.
     </p>
     <div style="text-align:center; margin:24px 0;">
@@ -129,7 +129,7 @@ export async function sendInvitationEmail(
   const html = baseTemplate(`
     <h2 style="color:#18181b; margin:0 0 12px;">You've been invited! 🤝</h2>
     <p style="color:#3f3f46; line-height:1.6;">
-      <strong>${inviterName}</strong> invited you to join the group <strong>"${groupName}"</strong> on SplitWise.
+      <strong>${inviterName}</strong> invited you to join the group <strong>"${groupName}"</strong> on LedgerNest.
     </p>
     <div style="text-align:center; margin:24px 0;">
       ${cta}

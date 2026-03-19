@@ -80,6 +80,7 @@ import {
   EXPENSE_CATEGORIES,
 } from "@/lib/utils";
 import { GroupAnalyticsCharts } from "@/components/charts/group-analytics";
+import { PageGuide } from "@/components/layout/page-guide";
 
 interface GroupData {
   group: any;
@@ -614,7 +615,15 @@ export default function GroupDetailPage() {
         <div>
           <h1 className="text-3xl font-bold">{group.name}</h1>
           {group.description && (
-            <p className="text-muted-foreground mt-1">{group.description}</p>
+            <div className="mt-2 max-w-xl">
+              <PageGuide
+                id={`group-${group.id}-description`}
+                title="Group Description"
+                subtitle="Optional context"
+              >
+                <p className="text-sm text-muted-foreground">{group.description}</p>
+              </PageGuide>
+            </div>
           )}
         </div>
         <div className="flex gap-2">
