@@ -24,13 +24,26 @@ export async function GET(request: Request) {
   const month = searchParams.get("month");
   const year = searchParams.get("year");
 
-  await prisma.personalExpense.updateMany({
+  const userCustomLegacyCategories = await prisma.personalExpenseCategory.findMany({
     where: {
       userId: session.userId,
-      category: { in: LEGACY_PREDEFINED_CATEGORIES },
+      slug: { in: LEGACY_PREDEFINED_CATEGORIES },
     },
-    data: { category: "other" },
+    select: { slug: true },
   });
+
+  const protectedLegacy = new Set(userCustomLegacyCategories.map((c) => c.slug));
+  const categoriesToMigrate = LEGACY_PREDEFINED_CATEGORIES.filter((c) => !protectedLegacy.has(c));
+
+  if (categoriesToMigrate.length > 0) {
+    await prisma.personalExpense.updateMany({
+      where: {
+        userId: session.userId,
+        category: { in: categoriesToMigrate },
+      },
+      data: { category: "other" },
+    });
+  }
 
   const where: any = { userId: session.userId };
 

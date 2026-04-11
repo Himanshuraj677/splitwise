@@ -717,6 +717,12 @@ export default function PersonalExpensesPage() {
         note: liabilityNote || undefined,
       }),
     });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: "Could not add expense", description: data.error || "Try again." });
+        setSubmitting(false);
+        return;
+      }
 
     if (res.ok) {
       toast({ title: "Liability added" });
