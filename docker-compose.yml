@@ -1,6 +1,6 @@
 services:
   nextjs:
-    image: anonymous677/ledgernest:latest
+    image: ${IMAGE}
     ports:
       - "3000:3000"
     env_file:

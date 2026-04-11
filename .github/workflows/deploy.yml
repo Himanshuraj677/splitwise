@@ -10,23 +10,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Get your code
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Login to Docker Hub
+      # 2️⃣ Docker Login
       - name: Docker Login
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      # 3️⃣ Build Docker Image
+      # 3️⃣ Build Image (UNIQUE TAG)
       - name: Build Image
-        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/ledgernest:latest .
+        run: docker build -t ${{ secrets.DOCKER_USERNAME }}/ledgernest:${{ github.sha }} .
 
-      # 4️⃣ Push Image to Docker Hub
+      # 4️⃣ Push Image
       - name: Push Image
-        run: docker push ${{ secrets.DOCKER_USERNAME }}/ledgernest:latest
+        run: docker push ${{ secrets.DOCKER_USERNAME }}/ledgernest:${{ github.sha }}
 
-      # 5️⃣ Deploy to your VM
+      # 5️⃣ Deploy via SSH
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -36,9 +36,15 @@ jobs:
           script: |
             cd splitwise/
 
-            # Pull latest image
-            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/ledgernest:latest
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKER_PASSWORD }}" | sudo docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-            # Restart container using docker-compose
+            # Pull latest image
+            sudo docker pull ${{ secrets.DOCKER_USERNAME }}/ledgernest:${{ github.sha }}
+
+            # Stop old containers
             sudo docker compose down
-            sudo docker compose up -d --remove-orphans  
+
+            # Start new container (FIXED ENV ISSUE)
+            IMAGE=${{ secrets.DOCKER_USERNAME }}/ledgernest:${{ github.sha }} \
+            sudo -E docker compose up -d --force-recreate --remove-orphans
