@@ -383,6 +383,12 @@ export default function PersonalExpensesPage() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+
+  // Helper to get category metadata
+  const getExpenseCategoryMeta = (value: string) => {
+    return categories.find((item) => item.value === value) || getCategoryInfo(value);
+  };
+
   const expenseTrendData = (overview?.trend || []).map((item) => ({
     month: item.month,
     income: item.income,
@@ -1151,10 +1157,6 @@ export default function PersonalExpensesPage() {
       : budgetPercentage >= 80
         ? "text-yellow-600"
         : "text-green-600";
-
-  const getExpenseCategoryMeta = (value: string) => {
-    return categories.find((item) => item.value === value) || getCategoryInfo(value);
-  };
 
   return (
     <div className="space-y-6">
