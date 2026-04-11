@@ -303,6 +303,58 @@ export default function PersonalExpensesPage() {
 
   const [submitting, setSubmitting] = useState(false);
 
+  // Edit Income state
+  const [editIncomeOpen, setEditIncomeOpen] = useState(false);
+  const [editingIncomeId, setEditingIncomeId] = useState("");
+  const [editIncomeSource, setEditIncomeSource] = useState("");
+  const [editIncomeType, setEditIncomeType] = useState("SALARY");
+  const [editIncomeAmount, setEditIncomeAmount] = useState("");
+  const [editIncomeDate, setEditIncomeDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editIncomeRecurring, setEditIncomeRecurring] = useState("no");
+  const [editIncomeNote, setEditIncomeNote] = useState("");
+
+  // Edit Investment state
+  const [editInvestmentOpen, setEditInvestmentOpen] = useState(false);
+  const [editingInvestmentId, setEditingInvestmentId] = useState("");
+  const [editInvestmentName, setEditInvestmentName] = useState("");
+  const [editInvestmentType, setEditInvestmentType] = useState("STOCK");
+  const [editInvestedAmount, setEditInvestedAmount] = useState("");
+  const [editCurrentValue, setEditCurrentValue] = useState("");
+  const [editInvestedDate, setEditInvestedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editInvestmentPlatform, setEditInvestmentPlatform] = useState("");
+  const [editInvestmentNote, setEditInvestmentNote] = useState("");
+
+  // Edit Liability state
+  const [editLiabilityOpen, setEditLiabilityOpen] = useState(false);
+  const [editingLiabilityId, setEditingLiabilityId] = useState("");
+  const [editLiabilityName, setEditLiabilityName] = useState("");
+  const [editLiabilityType, setEditLiabilityType] = useState("LOAN");
+  const [editLiabilityTotal, setEditLiabilityTotal] = useState("");
+  const [editLiabilityOutstanding, setEditLiabilityOutstanding] = useState("");
+  const [editLiabilityInterest, setEditLiabilityInterest] = useState("");
+  const [editLiabilityMinimumDue, setEditLiabilityMinimumDue] = useState("");
+  const [editLiabilityDueDate, setEditLiabilityDueDate] = useState("");
+  const [editLiabilityNote, setEditLiabilityNote] = useState("");
+
+  // Edit Lend state
+  const [editLendOpen, setEditLendOpen] = useState(false);
+  const [editingLendId, setEditingLendId] = useState("");
+  const [editLendFriendName, setEditLendFriendName] = useState("");
+  const [editLendFriendContact, setEditLendFriendContact] = useState("");
+  const [editLendAmount, setEditLendAmount] = useState("");
+  const [editLendDate, setEditLendDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editLendNote, setEditLendNote] = useState("");
+
+  // Edit Goal state
+  const [editGoalOpen, setEditGoalOpen] = useState(false);
+  const [editingGoalId, setEditingGoalId] = useState("");
+  const [editGoalTitle, setEditGoalTitle] = useState("");
+  const [editGoalTarget, setEditGoalTarget] = useState("");
+  const [editGoalCurrent, setEditGoalCurrent] = useState("");
+  const [editGoalDate, setEditGoalDate] = useState("");
+  const [editGoalStatus, setEditGoalStatus] = useState("ACTIVE");
+  const [editGoalNote, setEditGoalNote] = useState("");
+
   const customCategories = categories.filter((item) => item.isCustom);
   const expenseCategories = [
     { value: "other", label: "Other", icon: "📦" },
@@ -803,6 +855,220 @@ export default function PersonalExpensesPage() {
 
     toast({ title: "Expense updated" });
     setEditExpenseOpen(false);
+    setSubmitting(false);
+    loadData();
+  }
+
+  // Income handlers
+  function openEditIncome(income: any) {
+    setEditingIncomeId(income.id);
+    setEditIncomeSource(income.source);
+    setEditIncomeType(income.type);
+    setEditIncomeAmount(String(income.amount));
+    setEditIncomeDate(new Date(income.receivedAt).toISOString().split("T")[0]);
+    setEditIncomeRecurring(income.recurring ? "yes" : "no");
+    setEditIncomeNote(income.note || "");
+    setEditIncomeOpen(true);
+  }
+
+  async function saveIncomeEdit() {
+    if (!editingIncomeId || !editIncomeSource || !editIncomeAmount) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/income/${editingIncomeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source: editIncomeSource,
+        type: editIncomeType,
+        amount: parseFloat(editIncomeAmount),
+        receivedAt: editIncomeDate,
+        recurring: editIncomeRecurring === "yes",
+        note: editIncomeNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update income", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Income updated" });
+    setEditIncomeOpen(false);
+    setSubmitting(false);
+    loadData();
+  }
+
+  // Investment handlers
+  function openEditInvestment(investment: any) {
+    setEditingInvestmentId(investment.id);
+    setEditInvestmentName(investment.name);
+    setEditInvestmentType(investment.type);
+    setEditInvestedAmount(String(investment.investedAmount));
+    setEditCurrentValue(String(investment.currentValue));
+    setEditInvestedDate(new Date(investment.investedAt).toISOString().split("T")[0]);
+    setEditInvestmentPlatform(investment.platform || "");
+    setEditInvestmentNote(investment.note || "");
+    setEditInvestmentOpen(true);
+  }
+
+  async function saveInvestmentEdit() {
+    if (!editingInvestmentId || !editInvestmentName || !editInvestedAmount || !editCurrentValue) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/investments/${editingInvestmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editInvestmentName,
+        type: editInvestmentType,
+        investedAmount: parseFloat(editInvestedAmount),
+        currentValue: parseFloat(editCurrentValue),
+        investedAt: editInvestedDate,
+        platform: editInvestmentPlatform || undefined,
+        note: editInvestmentNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update investment", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Investment updated" });
+    setEditInvestmentOpen(false);
+    setSubmitting(false);
+    loadData();
+  }
+
+  // Liability handlers
+  function openEditLiability(liability: any) {
+    setEditingLiabilityId(liability.id);
+    setEditLiabilityName(liability.name);
+    setEditLiabilityType(liability.type);
+    setEditLiabilityTotal(String(liability.totalAmount));
+    setEditLiabilityOutstanding(String(liability.outstandingAmount));
+    setEditLiabilityInterest(String(liability.interestRate || ""));
+    setEditLiabilityMinimumDue(String(liability.minimumDue || ""));
+    setEditLiabilityDueDate(liability.dueDate ? new Date(liability.dueDate).toISOString().split("T")[0] : "");
+    setEditLiabilityNote(liability.note || "");
+    setEditLiabilityOpen(true);
+  }
+
+  async function saveLiabilityEdit() {
+    if (!editingLiabilityId || !editLiabilityName || !editLiabilityTotal || !editLiabilityOutstanding) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/liabilities/${editingLiabilityId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: editLiabilityName,
+        type: editLiabilityType,
+        totalAmount: parseFloat(editLiabilityTotal),
+        outstandingAmount: parseFloat(editLiabilityOutstanding),
+        interestRate: editLiabilityInterest ? parseFloat(editLiabilityInterest) : null,
+        minimumDue: editLiabilityMinimumDue ? parseFloat(editLiabilityMinimumDue) : null,
+        dueDate: editLiabilityDueDate || null,
+        note: editLiabilityNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update liability", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Liability updated" });
+    setEditLiabilityOpen(false);
+    setSubmitting(false);
+    loadData();
+  }
+
+  // Lend handlers
+  function openEditLend(lend: any) {
+    setEditingLendId(lend.id);
+    setEditLendFriendName(lend.friendName);
+    setEditLendFriendContact(lend.friendContact || "");
+    setEditLendAmount(String(lend.principalAmount));
+    setEditLendDate(new Date(lend.lentAt).toISOString().split("T")[0]);
+    setEditLendNote(lend.note || "");
+    setEditLendOpen(true);
+  }
+
+  async function saveLendEdit() {
+    if (!editingLendId || !editLendFriendName || !editLendAmount) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/lends/${editingLendId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        friendName: editLendFriendName,
+        friendContact: editLendFriendContact || null,
+        principalAmount: parseFloat(editLendAmount),
+        lentAt: editLendDate,
+        note: editLendNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update lend", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Lend entry updated" });
+    setEditLendOpen(false);
+    setSubmitting(false);
+    loadData();
+  }
+
+  // Goal handlers
+  function openEditGoal(goal: any) {
+    setEditingGoalId(goal.id);
+    setEditGoalTitle(goal.title);
+    setEditGoalTarget(String(goal.targetAmount));
+    setEditGoalCurrent(String(goal.currentAmount));
+    setEditGoalDate(goal.targetDate ? new Date(goal.targetDate).toISOString().split("T")[0] : "");
+    setEditGoalStatus(goal.status);
+    setEditGoalNote(goal.note || "");
+    setEditGoalOpen(true);
+  }
+
+  async function saveGoalEdit() {
+    if (!editingGoalId || !editGoalTitle || !editGoalTarget) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/savings-goals/${editingGoalId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: editGoalTitle,
+        targetAmount: parseFloat(editGoalTarget),
+        currentAmount: parseFloat(editGoalCurrent),
+        targetDate: editGoalDate || null,
+        status: editGoalStatus,
+        note: editGoalNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update goal", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Goal updated" });
+    setEditGoalOpen(false);
     setSubmitting(false);
     loadData();
   }
@@ -1905,6 +2171,64 @@ export default function PersonalExpensesPage() {
               <CardTitle>Income Entries</CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editIncomeOpen} onOpenChange={setEditIncomeOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Income Entry</DialogTitle>
+                    <DialogDescription>Update your income source details.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Source</Label>
+                      <Input value={editIncomeSource} onChange={(e) => setEditIncomeSource(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Select value={editIncomeType} onValueChange={setEditIncomeType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INCOME_TYPES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Amount</Label>
+                      <Input type="number" min="0" step="0.01" value={editIncomeAmount} onChange={(e) => setEditIncomeAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Received Date</Label>
+                      <Input type="date" value={editIncomeDate} onChange={(e) => setEditIncomeDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Recurring</Label>
+                      <Select value={editIncomeRecurring} onValueChange={setEditIncomeRecurring}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes">Yes</SelectItem>
+                          <SelectItem value="no">No</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editIncomeNote} onChange={(e) => setEditIncomeNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveIncomeEdit} className="w-full" disabled={!editIncomeSource || !editIncomeAmount || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {incomeEntries.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No income entries this month.</p>
               ) : (
@@ -1923,6 +2247,9 @@ export default function PersonalExpensesPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <p className="font-semibold text-green-600">{formatCurrency(entry.amount)}</p>
+                        <Button variant="ghost" size="icon" onClick={() => openEditIncome(entry)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => deleteIncome(entry.id)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -1981,6 +2308,62 @@ export default function PersonalExpensesPage() {
               <CardTitle>Investment Portfolio</CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editInvestmentOpen} onOpenChange={setEditInvestmentOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Investment</DialogTitle>
+                    <DialogDescription>Update investment details and current value.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input value={editInvestmentName} onChange={(e) => setEditInvestmentName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Select value={editInvestmentType} onValueChange={setEditInvestmentType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {INVESTMENT_TYPES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Invested</Label>
+                        <Input type="number" min="0" step="0.01" value={editInvestedAmount} onChange={(e) => setEditInvestedAmount(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Current Value</Label>
+                        <Input type="number" min="0" step="0.01" value={editCurrentValue} onChange={(e) => setEditCurrentValue(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Invested Date</Label>
+                      <Input type="date" value={editInvestedDate} onChange={(e) => setEditInvestedDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Platform (optional)</Label>
+                      <Input value={editInvestmentPlatform} onChange={(e) => setEditInvestmentPlatform(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editInvestmentNote} onChange={(e) => setEditInvestmentNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveInvestmentEdit} className="w-full" disabled={!editInvestmentName || !editInvestedAmount || !editCurrentValue || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {investments.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No investments tracked yet.</p>
               ) : (
@@ -1997,9 +2380,14 @@ export default function PersonalExpensesPage() {
                               {item.platform ? ` • ${item.platform}` : ""}
                             </p>
                           </div>
-                          <Button variant="ghost" size="icon" onClick={() => deleteInvestment(item.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => openEditInvestment(item)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => deleteInvestment(item.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
                         </div>
                         <div className="mt-2 grid gap-2 text-sm md:grid-cols-3">
                           <p>Invested: <span className="font-semibold">{formatCurrency(item.investedAmount)}</span></p>
@@ -2055,6 +2443,68 @@ export default function PersonalExpensesPage() {
               <CardTitle>Liabilities</CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editLiabilityOpen} onOpenChange={setEditLiabilityOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Liability</DialogTitle>
+                    <DialogDescription>Update loan and debt information.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Name</Label>
+                      <Input value={editLiabilityName} onChange={(e) => setEditLiabilityName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Type</Label>
+                      <Select value={editLiabilityType} onValueChange={setEditLiabilityType}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {LIABILITY_TYPES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Total Amount</Label>
+                        <Input type="number" min="0" step="0.01" value={editLiabilityTotal} onChange={(e) => setEditLiabilityTotal(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Outstanding</Label>
+                        <Input type="number" min="0" step="0.01" value={editLiabilityOutstanding} onChange={(e) => setEditLiabilityOutstanding(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Interest % (optional)</Label>
+                        <Input type="number" min="0" max="100" step="0.01" value={editLiabilityInterest} onChange={(e) => setEditLiabilityInterest(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Minimum Due (optional)</Label>
+                        <Input type="number" min="0" step="0.01" value={editLiabilityMinimumDue} onChange={(e) => setEditLiabilityMinimumDue(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Due Date (optional)</Label>
+                      <Input type="date" value={editLiabilityDueDate} onChange={(e) => setEditLiabilityDueDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editLiabilityNote} onChange={(e) => setEditLiabilityNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveLiabilityEdit} className="w-full" disabled={!editLiabilityName || !editLiabilityTotal || !editLiabilityOutstanding || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {liabilities.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No liabilities tracked yet.</p>
               ) : (
@@ -2069,9 +2519,14 @@ export default function PersonalExpensesPage() {
                             {item.dueDate ? ` • Due ${formatRelativeDate(item.dueDate)}` : ""}
                           </p>
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => deleteLiability(item.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" onClick={() => openEditLiability(item)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => deleteLiability(item.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="mt-2 grid gap-2 text-sm md:grid-cols-4">
                         <p>Total: <span className="font-semibold">{formatCurrency(item.totalAmount)}</span></p>
@@ -2179,6 +2634,41 @@ export default function PersonalExpensesPage() {
               <CardTitle>Lend Ledger</CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editLendOpen} onOpenChange={setEditLendOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Lend Entry</DialogTitle>
+                    <DialogDescription>Update lend details and friend information.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Friend Name</Label>
+                      <Input value={editLendFriendName} onChange={(e) => setEditLendFriendName(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Contact (optional)</Label>
+                      <Input value={editLendFriendContact} onChange={(e) => setEditLendFriendContact(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Amount Lent</Label>
+                      <Input type="number" min="0" step="0.01" value={editLendAmount} onChange={(e) => setEditLendAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Lent Date</Label>
+                      <Input type="date" value={editLendDate} onChange={(e) => setEditLendDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editLendNote} onChange={(e) => setEditLendNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveLendEdit} className="w-full" disabled={!editLendFriendName || !editLendAmount || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {lends.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No lends tracked yet.</p>
               ) : (
@@ -2204,6 +2694,9 @@ export default function PersonalExpensesPage() {
                             </Badge>
                             <Button variant="ghost" size="sm" onClick={() => addReturn(lend)} disabled={lend.outstanding <= 0}>
                               Add Return
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEditLend(lend)}>
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => deleteLend(lend.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
@@ -2279,6 +2772,58 @@ export default function PersonalExpensesPage() {
               <CardTitle>Savings Goals</CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editGoalOpen} onOpenChange={setEditGoalOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Savings Goal</DialogTitle>
+                    <DialogDescription>Update goal target and progress.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Goal Title</Label>
+                      <Input value={editGoalTitle} onChange={(e) => setEditGoalTitle(e.target.value)} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label>Target Amount</Label>
+                        <Input type="number" min="0" step="0.01" value={editGoalTarget} onChange={(e) => setEditGoalTarget(e.target.value)} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Current Saved</Label>
+                        <Input type="number" min="0" step="0.01" value={editGoalCurrent} onChange={(e) => setEditGoalCurrent(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select value={editGoalStatus} onValueChange={setEditGoalStatus}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {GOAL_STATUSES.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {item.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Target Date (optional)</Label>
+                      <Input type="date" value={editGoalDate} onChange={(e) => setEditGoalDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editGoalNote} onChange={(e) => setEditGoalNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveGoalEdit} className="w-full" disabled={!editGoalTitle || !editGoalTarget || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {goals.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No goals created yet.</p>
               ) : (
@@ -2302,6 +2847,9 @@ export default function PersonalExpensesPage() {
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" onClick={() => addContribution(goal)}>
                               <ArrowDownUp className="mr-2 h-4 w-4" /> Add
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => openEditGoal(goal)}>
+                              <Pencil className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" onClick={() => deleteGoal(goal.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
