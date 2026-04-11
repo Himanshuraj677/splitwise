@@ -40,6 +40,7 @@ import {
   TrendingDown,
   TrendingUp,
   Wallet,
+  Pencil,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import {
@@ -54,6 +55,18 @@ import {
   LIABILITY_TYPES,
 } from "@/lib/utils";
 import { PageGuide } from "@/components/layout/page-guide";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 interface PersonalExpense {
   id: string;
@@ -62,6 +75,17 @@ interface PersonalExpense {
   date: string;
   note: string | null;
 }
+
+const ANALYTICS_COLORS = [
+  "#22c55e",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#14b8a6",
+  "#8b5cf6",
+  "#ec4899",
+  "#6366f1",
+];
 
 interface ExpenseCategory {
   value: string;
@@ -216,10 +240,16 @@ export default function PersonalExpensesPage() {
   // Expense form
   const [addOpen, setAddOpen] = useState(false);
   const [manageCategoriesOpen, setManageCategoriesOpen] = useState(false);
+  const [editExpenseOpen, setEditExpenseOpen] = useState(false);
+  const [editingExpenseId, setEditingExpenseId] = useState("");
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [note, setNote] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editCategory, setEditCategory] = useState("other");
+  const [editDate, setEditDate] = useState(new Date().toISOString().split("T")[0]);
+  const [editNote, setEditNote] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newCategoryIcon, setNewCategoryIcon] = useState("🏷️");
   const [categoryTargets, setCategoryTargets] = useState<Record<string, string>>({});
@@ -292,7 +322,7 @@ export default function PersonalExpensesPage() {
   const [budgetOpen, setBudgetOpen] = useState(false);
   const [budgetLimit, setBudgetLimit] = useState("");
   const searchParams = useSearchParams();
-  const allowedTabs = ["overview", "expenses", "income", "investments", "liabilities", "lends", "goals"];
+  const allowedTabs = ["overview", "expenses", "income", "investments", "liabilities", "lends", "goals", "analytics"];
   const urlTab = searchParams.get("tab") || "overview";
   const [activeTab, setActiveTab] = useState(
     allowedTabs.includes(urlTab) ? urlTab : "overview"
@@ -301,6 +331,26 @@ export default function PersonalExpensesPage() {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+  const expenseTrendData = (overview?.trend || []).map((item) => ({
+    month: item.month,
+    income: item.income,
+    expense: item.expenses,
+    cashflow: item.cashflow,
+  }));
+
+  const categoryAnalyticsData = Object.entries(summary.categoryBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, 8)
+    .map(([cat, total]) => ({
+      name: getExpenseCategoryMeta(cat).label,
+      total,
+    }));
+
+  const portfolioMixData = [
+    { name: "Investments", value: overview?.totalInvestmentValue || 0 },
+    { name: "Goal Savings", value: overview?.totalGoalSavings || 0 },
+    { name: "Liabilities", value: overview?.totalLiabilities || 0 },
+  ].filter((item) => item.value > 0);
 
   useEffect(() => {
     loadData();
@@ -717,6 +767,43 @@ export default function PersonalExpensesPage() {
   async function deleteExpense(id: string) {
     await fetch(`/api/personal-expenses/${id}`, { method: "DELETE" });
     toast({ title: "Expense deleted" });
+    loadData();
+  }
+
+  function openEditExpense(expense: PersonalExpense) {
+    setEditingExpenseId(expense.id);
+    setEditAmount(String(expense.amount));
+    setEditCategory(expense.category || "other");
+    setEditDate(new Date(expense.date).toISOString().split("T")[0]);
+    setEditNote(expense.note || "");
+    setEditExpenseOpen(true);
+  }
+
+  async function saveExpenseEdit() {
+    if (!editingExpenseId || !editAmount || !editCategory) return;
+
+    setSubmitting(true);
+    const res = await fetch(`/api/personal-expenses/${editingExpenseId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: parseFloat(editAmount),
+        category: editCategory,
+        date: editDate,
+        note: editNote || null,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      toast({ title: "Could not update expense", description: data.error || "Try again." });
+      setSubmitting(false);
+      return;
+    }
+
+    toast({ title: "Expense updated" });
+    setEditExpenseOpen(false);
+    setSubmitting(false);
     loadData();
   }
 
@@ -1408,7 +1495,7 @@ export default function PersonalExpensesPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 gap-2 md:grid-cols-7">
+        <TabsList className="grid w-full grid-cols-4 gap-2 md:grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="expenses">Expenses</TabsTrigger>
           <TabsTrigger value="income">Income</TabsTrigger>
@@ -1416,6 +1503,7 @@ export default function PersonalExpensesPage() {
           <TabsTrigger value="liabilities">Liabilities</TabsTrigger>
           <TabsTrigger value="lends">Lends</TabsTrigger>
           <TabsTrigger value="goals">Goals</TabsTrigger>
+          <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
@@ -1661,6 +1749,48 @@ export default function PersonalExpensesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              <Dialog open={editExpenseOpen} onOpenChange={setEditExpenseOpen}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Edit Personal Expense</DialogTitle>
+                    <DialogDescription>Update amount, category, date, and note.</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label>Amount</Label>
+                      <Input type="number" min="0" step="0.01" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Category</Label>
+                      <Select value={editCategory} onValueChange={setEditCategory}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((c) => (
+                            <SelectItem key={`edit-${c.value}`} value={c.value}>
+                              {c.icon} {c.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Input type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Note (optional)</Label>
+                      <Input value={editNote} onChange={(e) => setEditNote(e.target.value)} />
+                    </div>
+                    <Button onClick={saveExpenseEdit} className="w-full" disabled={!editAmount || submitting}>
+                      {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+
               {expenses.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12">
                   <div className="mb-4 rounded-full bg-primary/10 p-4">
@@ -1712,6 +1842,13 @@ export default function PersonalExpensesPage() {
                               {formatRelativeDate(expense.date)}
                             </p>
                           </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditExpense(expense)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
                           <Button
                             variant="ghost"
                             size="icon"
@@ -2186,6 +2323,111 @@ export default function PersonalExpensesPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="analytics" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Income vs Expense Trend</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[320px]">
+                {expenseTrendData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No trend data available yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={expenseTrendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="month" fontSize={12} />
+                      <YAxis fontSize={12} tickFormatter={(v) => `₹${v}`} />
+                      <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+                      <Bar dataKey="income" fill="#22c55e" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="expense" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Expense Category Share</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[320px]">
+                {categoryAnalyticsData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No category spend data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryAnalyticsData}
+                        dataKey="total"
+                        nameKey="name"
+                        innerRadius={58}
+                        outerRadius={108}
+                        paddingAngle={2}
+                      >
+                        {categoryAnalyticsData.map((entry, idx) => (
+                          <Cell key={`${entry.name}-${idx}`} fill={ANALYTICS_COLORS[idx % ANALYTICS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Cashflow Trend (6 Months)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {expenseTrendData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No monthly cashflow data available.</p>
+                ) : (
+                  expenseTrendData.map((item) => (
+                    <div key={`cf-${item.month}`} className="flex items-center justify-between rounded-md border p-2 text-sm">
+                      <span className="font-medium">{item.month}</span>
+                      <span className={item.cashflow >= 0 ? "text-green-600 font-semibold" : "text-destructive font-semibold"}>
+                        {formatCurrency(item.cashflow)}
+                      </span>
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Asset vs Liability Mix</CardTitle>
+              </CardHeader>
+              <CardContent className="h-[320px]">
+                {portfolioMixData.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No portfolio data yet.</p>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={portfolioMixData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={50}
+                        outerRadius={100}
+                      >
+                        {portfolioMixData.map((entry, idx) => (
+                          <Cell key={`${entry.name}-${idx}`} fill={ANALYTICS_COLORS[idx % ANALYTICS_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => formatCurrency(Number(value))} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
